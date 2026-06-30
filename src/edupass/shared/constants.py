@@ -1,0 +1,2 @@
+# Constantes compartidas del MVP.
+
