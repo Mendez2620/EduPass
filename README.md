@@ -38,5 +38,18 @@ Para ejecutar la prueba basica del modulo de persistencia:
 python -m unittest tests\test_database_manager.py
 ```
 
+## Pruebas unitarias
+
+Las pruebas actuales corresponden al modulo `src/edupass/persistence/database_manager.py` y usan `unittest`.
+
+Para ejecutarlas:
+
+```powershell
+python -m unittest tests\test_database_manager.py
+```
+
+Las pruebas usan una base temporal de prueba dentro de `.test_tmp/` y no modifican `data/edupass.sqlite`.
+
+Actualmente validan la creacion de la base SQLite, las tablas esperadas, el caso limite de doble inicializacion, el error por `schema.sql` faltante y columnas o restricciones relacionadas con RF-02, RF-33, RF-44 y RF-50.
 
 
