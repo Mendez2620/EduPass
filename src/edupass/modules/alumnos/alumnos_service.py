@@ -163,6 +163,13 @@ def consultar_alumno_por_matricula(
     return alumno
 
 
+def listar_alumnos(
+    database_path: Any = None,
+) -> list[dict[str, Any]]:
+    """Devuelve todos los alumnos registrados."""
+    return alumno_repository.listar_todos(database_path)
+
+
 def editar_alumno(
     alumno_id: object,
     nombre: object,

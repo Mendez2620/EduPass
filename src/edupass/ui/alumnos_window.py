@@ -8,13 +8,19 @@ from typing import Any, TypeVar
 from PySide6.QtCore import QFile, QIODevice
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
+    QDialog,
+
     QComboBox,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
     QPushButton,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -128,6 +134,7 @@ class AlumnosWindow:
             "lineEditFotografia",
         )
         self.comboBoxEstado = self._require_widget(QComboBox, "comboBoxEstado")
+
         self.pushButtonRegistrar = self._require_widget(
             QPushButton,
             "pushButtonRegistrar",
@@ -152,6 +159,10 @@ class AlumnosWindow:
             QPushButton,
             "pushButtonLimpiar",
         )
+        self.btnListarAlumnos = self._require_widget(
+            QPushButton,
+            "btnListarAlumnos",
+        )
 
     def _connect_signals(self) -> None:
         self.pushButtonRegistrar.clicked.connect(self._register_alumno)
@@ -160,6 +171,8 @@ class AlumnosWindow:
         self.pushButtonActivar.clicked.connect(self._activate_alumno)
         self.pushButtonDesactivar.clicked.connect(self._deactivate_alumno)
         self.pushButtonLimpiar.clicked.connect(self._clear_form)
+
+        self.btnListarAlumnos.clicked.connect(self._list_alumnos)
 
     def _apply_initial_state(self) -> None:
         self._clear_selection(preserve_fields=False)
@@ -330,6 +343,68 @@ class AlumnosWindow:
             )
             return None
         return self._alumno_id
+
+
+    def _list_alumnos(self, checked: bool = False) -> None:
+        del checked
+        try:
+            alumnos = alumnos_service.listar_alumnos(self._database_path)
+        except EduPassError as error:
+            self._handle_domain_error(error, "listar")
+            return
+
+        if not alumnos:
+            QMessageBox.information(
+                self._window,
+                "Alumnos registrados",
+                "No hay alumnos registrados.",
+            )
+            return
+
+        dialog = QDialog(self._window)
+        dialog.setWindowTitle("Alumnos registrados - EduPass")
+        dialog.resize(980, 460)
+        layout = QVBoxLayout(dialog)
+        table = QTableWidget(len(alumnos), 7, dialog)
+        table.setHorizontalHeaderLabels(
+            (
+                "ID",
+                "Nombre completo",
+                "Matrícula",
+                "Grado",
+                "Grupo",
+                "Ruta de fotografía",
+                "Estado",
+            )
+        )
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+
+        fields = (
+            "alumno_id",
+            "nombre",
+            "matricula",
+            "grado",
+            "grupo",
+            "fotografia",
+            "estado",
+        )
+        for row_index, alumno in enumerate(alumnos):
+            for column_index, field in enumerate(fields):
+                value = alumno[field]
+                table.setItem(
+                    row_index,
+                    column_index,
+                    QTableWidgetItem("" if value is None else str(value)),
+                )
+
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setStretchLastSection(True)
+        close_button = QPushButton("Cerrar", dialog)
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(table)
+        layout.addWidget(close_button)
+        dialog.exec()
 
     def _register_alumno(self, checked: bool = False) -> None:
         del checked

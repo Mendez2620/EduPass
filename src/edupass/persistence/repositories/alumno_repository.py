@@ -19,6 +19,7 @@ _SQL_DIRECTORY = Path(__file__).resolve().parent.parent / "sql" / "alumnos"
 _INSERT_FILE = "insert_alumno.sql"
 _SELECT_BY_ID_FILE = "select_alumno_by_id.sql"
 _SELECT_BY_MATRICULA_FILE = "select_alumno_by_matricula.sql"
+_SELECT_ALL_FILE = "select_all_alumnos.sql"
 _EXISTS_MATRICULA_FILE = "exists_alumno_matricula.sql"
 _UPDATE_FILE = "update_alumno.sql"
 _UPDATE_ESTADO_FILE = "update_alumno_estado.sql"
@@ -81,6 +82,30 @@ def _fetch_one(
         cursor = connection.execute(query, parameters)
         row = cursor.fetchone()
         return dict(row) if row is not None else None
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        raise RepositoryError(
+            "No se pudo completar la consulta de alumnos."
+        ) from exc
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def _fetch_all(
+    file_name: str,
+    database_path: Path | None,
+) -> list[dict[str, Any]]:
+    query = _load_query(file_name)
+    connection = None
+    cursor = None
+
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        cursor = connection.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
     except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
         raise RepositoryError(
             "No se pudo completar la consulta de alumnos."
@@ -186,6 +211,13 @@ def obtener_alumno_por_matricula(
         (matricula,),
         database_path,
     )
+
+
+def listar_todos(
+    database_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Devuelve todos los alumnos ordenados por identificador."""
+    return _fetch_all(_SELECT_ALL_FILE, database_path)
 
 
 def existe_matricula(

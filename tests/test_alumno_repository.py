@@ -321,6 +321,81 @@ class TestAlumnoRepository(unittest.TestCase):
         self.assertNotIsInstance(context.exception, sqlite3.OperationalError)
         self.assertNotIn("SELECT", str(context.exception).upper())
 
+    def test_listar_todos_devuelve_lista_vacia_sin_alumnos(self):
+        self.assertEqual(
+            alumno_repository.listar_todos(self.database_path),
+            [],
+        )
+
+    def test_listar_todos_devuelve_todos_los_alumnos(self):
+        self._crear_alumno()
+        self._crear_alumno(
+            nombre="Luis Pérez",
+            matricula="EDU-002",
+            grado="4",
+            grupo="B",
+        )
+
+        alumnos = alumno_repository.listar_todos(self.database_path)
+
+        self.assertEqual(len(alumnos), 2)
+        self.assertEqual(
+            [alumno["matricula"] for alumno in alumnos],
+            ["EDU-001", "EDU-002"],
+        )
+
+    def test_listar_todos_conserva_orden_por_id(self):
+        ids = [
+            self._crear_alumno(),
+            self._crear_alumno(
+                nombre="Luis Pérez",
+                matricula="EDU-002",
+            ),
+            self._crear_alumno(
+                nombre="Marta Ruiz",
+                matricula="EDU-003",
+            ),
+        ]
+
+        alumnos = alumno_repository.listar_todos(self.database_path)
+
+        self.assertEqual(
+            [alumno["alumno_id"] for alumno in alumnos],
+            ids,
+        )
+
+    def test_listar_todos_devuelve_campos_esperados(self):
+        self._crear_alumno(fotografia="fotos/ana.png", estado="inactivo")
+
+        alumno = alumno_repository.listar_todos(self.database_path)[0]
+
+        self.assertEqual(
+            alumno,
+            {
+                "alumno_id": 1,
+                "nombre": "Ana López García",
+                "matricula": "EDU-001",
+                "grado": "3",
+                "grupo": "A",
+                "fotografia": "fotos/ana.png",
+                "estado": "inactivo",
+            },
+        )
+        self.assertNotIsInstance(alumno, sqlite3.Row)
+
+    def test_listar_todos_traduce_error_sqlite(self):
+        with patch.object(
+            alumno_repository.database_manager,
+            "get_connection",
+            side_effect=sqlite3.OperationalError("fallo sqlite"),
+        ):
+            with self.assertRaises(RepositoryError) as context:
+                alumno_repository.listar_todos(self.database_path)
+
+        self.assertEqual(
+            str(context.exception),
+            "No se pudo completar la consulta de alumnos.",
+        )
 
 if __name__ == "__main__":
     unittest.main()

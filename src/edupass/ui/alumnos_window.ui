@@ -359,6 +359,22 @@
          </property>
         </widget>
        </item>
+       <item row="2" column="0" colspan="3">
+        <widget class="QPushButton" name="btnListarAlumnos">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>36</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Mostrar todos los alumnos registrados</string>
+         </property>
+         <property name="text">
+          <string>Listar alumnos</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </item>
@@ -416,6 +432,7 @@
   <tabstop>pushButtonActivar</tabstop>
   <tabstop>pushButtonDesactivar</tabstop>
   <tabstop>pushButtonLimpiar</tabstop>
+  <tabstop>btnListarAlumnos</tabstop>
  </tabstops>
  <resources/>
  <connections/>

@@ -682,6 +682,40 @@ class TestAlumnosService(unittest.TestCase):
         )
         self.assertEqual(consultado, alumno)
 
+    def test_listar_alumnos_devuelve_lista_vacia(self):
+        with patch.object(
+            alumnos_service.alumno_repository,
+            "listar_todos",
+            return_value=[],
+        ) as mocked_repository:
+            alumnos = alumnos_service.listar_alumnos(self.database_path)
+
+        self.assertEqual(alumnos, [])
+        mocked_repository.assert_called_once_with(self.database_path)
+
+    def test_listar_alumnos_devuelve_lista_del_repositorio(self):
+        expected = [self._datos_alumno(alumno_id=1)]
+        with patch.object(
+            alumnos_service.alumno_repository,
+            "listar_todos",
+            return_value=expected,
+        ) as mocked_repository:
+            alumnos = alumnos_service.listar_alumnos(self.database_path)
+
+        self.assertIs(alumnos, expected)
+        mocked_repository.assert_called_once_with(self.database_path)
+
+    def test_listar_alumnos_propaga_repository_error(self):
+        original_error = RepositoryError("fallo controlado")
+        with patch.object(
+            alumnos_service.alumno_repository,
+            "listar_todos",
+            side_effect=original_error,
+        ):
+            with self.assertRaises(RepositoryError) as context:
+                alumnos_service.listar_alumnos(self.database_path)
+
+        self.assertIs(context.exception, original_error)
 
 if __name__ == "__main__":
     unittest.main()
