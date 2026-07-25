@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="login-layout" aria-labelledby="login-title">
+  <div class="login-panel">
+    <p class="eyebrow">Acceso autorizado</p>
+    <h1 id="login-title">Iniciar sesion</h1>
+    <p>Ingresa con una cuenta administrativa o de personal de escaneo.</p>
+
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.correo.label }}
+        {{ form.correo(autocomplete="username", inputmode="email") }}
+        {% for error in form.correo.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div class="field">
+        {{ form.password.label }}
+        {{ form.password(autocomplete="current-password") }}
+        {% for error in form.password.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      {{ form.submit(class_="button button-primary") }}
+    </form>
+    <p class="scope-note">Acceso disponible unicamente para la demostracion local.</p>
+  </div>
+</section>
+{% endblock %}

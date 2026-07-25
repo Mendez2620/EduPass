@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administracion</p>
+  <h1>Listado de alumnos</h1>
+  <p>Consulta de solo lectura de los registros disponibles.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error">{{ error_message }}</p>
+{% elif alumnos %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">ID</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">Matricula</th>
+          <th scope="col">Grado</th>
+          <th scope="col">Grupo</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alumno in alumnos %}
+          <tr>
+            <td>{{ alumno.alumno_id }}</td>
+            <td>{{ alumno.nombre }}</td>
+            <td>{{ alumno.matricula }}</td>
+            <td>{{ alumno.grado }}</td>
+            <td>{{ alumno.grupo }}</td>
+            <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="empty-state">No hay alumnos registrados para mostrar.</p>
+{% endif %}
+{% endblock %}

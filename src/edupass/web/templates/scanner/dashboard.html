@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Personal de escaneo</p>
+  <h1>Bienvenido, {{ current_user.nombre }}</h1>
+  <p>Rol: {{ current_user.rol_nombre }}</p>
+</section>
+
+<p class="notice">El m&oacute;dulo de escaneo y validaci&oacute;n QR se implementar&aacute; en el siguiente incremento.</p>
+{% endblock %}

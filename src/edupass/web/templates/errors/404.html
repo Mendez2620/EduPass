@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="error-page">
+  <p class="error-code">404</p>
+  <h1>Recurso no encontrado</h1>
+  <p>La pagina solicitada no existe.</p>
+  <a class="button button-primary" href="{{ url_for('auth.index') }}">Volver a EduPass</a>
+</section>
+{% endblock %}

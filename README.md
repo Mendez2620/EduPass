@@ -1,6 +1,6 @@
 # EduPass
 
-EduPass es un proyecto académico de control escolar desarrollado en Python con una arquitectura modular. Su objetivo general es administrar alumnos, credenciales QR, accesos, movimientos y notificaciones. En el avance actual se implementó y validó el módulo administrativo de alumnos junto con su persistencia SQLite; el sistema completo aún no está terminado.
+EduPass es un proyecto académico de control escolar desarrollado en Python con una arquitectura modular. Su objetivo general es administrar alumnos, credenciales QR, accesos, movimientos y notificaciones. En el avance actual se implementaron la persistencia SQLite, el módulo administrativo de alumnos, la autenticación modular y una interfaz web inicial; el sistema completo aún no está terminado.
 
 ## Alcance del MVP
 
@@ -11,11 +11,11 @@ EduPass es un proyecto académico de control escolar desarrollado en Python con 
 - Consulta en pantalla del historial.
 - Sin transporte escolar, pagos, calificaciones, reconocimiento facial, geolocalización en tiempo real, modo offline avanzado, exportación de reportes ni multiinstitución.
 
-Los puntos anteriores describen el alcance general planeado. En el corte de Semana 9 solo están implementados la persistencia inicial y el módulo administrativo de alumnos.
+Los puntos anteriores describen el alcance general planeado. En el corte actual están implementados la persistencia inicial, el módulo administrativo de alumnos, la autenticación por rol y el primer incremento web.
 
 ## Estado actual del desarrollo
 
-Hasta la Semana 9 se encuentran implementados y comprobados:
+Hasta la Semana 11 se encuentran implementados y comprobados:
 
 - inicialización de SQLite mediante `database_manager.py` y `schema.sql`;
 - repositorio del módulo de alumnos;
@@ -25,8 +25,12 @@ Hasta la Semana 9 se encuentran implementados y comprobados:
 - demostración funcional por consola;
 - prototipo administrativo de escritorio con PySide6 y Qt Designer;
 - persistencia local de alumnos comprobada entre ejecuciones.
+- autenticación modular para administrador y personal de escaneo;
+- sesiones web con Flask-Login y protección CSRF con Flask-WTF;
+- panel web administrativo y listado de alumnos de solo lectura;
+- panel de escaneo que identifica honestamente el trabajo pendiente.
 
-No se consideran implementados todavía QR, tutores, movimientos, notificaciones, autenticación, usuarios, roles, áreas, dispositivos, historial completo ni auditoría funcional. Los archivos base de otros módulos son únicamente placeholders de la estructura modular.
+No se consideran implementados todavía QR, tutores, movimientos, notificaciones, áreas, dispositivos, historial completo ni auditoría funcional. Los archivos base de esos módulos son únicamente placeholders de la estructura modular.
 
 ## Evolución por semanas
 
@@ -45,6 +49,12 @@ El archivo `data/edupass.sqlite` se genera automáticamente y está ignorado por
 ### Semana 9: módulo funcional de alumnos
 
 El avance integra repositorio, SQL externo, servicio, demostración por consola e interfaz gráfica para registrar, consultar, editar, activar y desactivar alumnos. También se comprobó manualmente la persistencia entre cierres de la aplicación.
+
+### Semanas 10 y 11: autenticación y web inicial
+
+La autenticación modular permite crear cuentas de demostración con contraseñas hasheadas, autenticar usuarios activos y validar los roles `administrador` y `escaner`. La interfaz web reutiliza esos servicios, agrega sesiones, CSRF, separación estricta por rol y un listado administrativo de alumnos de solo lectura.
+
+La interfaz PySide6 continúa disponible para el módulo administrativo de escritorio. La interfaz web es un cliente separado para navegación desde un navegador moderno; ambas reutilizan servicios existentes y ninguna reemplaza las reglas de negocio.
 
 ## Prototipo de escritorio con PySide6
 
@@ -153,6 +163,7 @@ Los demás módulos presentes en la estructura todavía no contienen implementac
 
 - Entorno de desarrollo probado: Python 3.12.1.
 - PySide6 6.11.1, declarado en `requirements.txt`.
+- Flask 3.1.3, Flask-Login 0.6.3 y Flask-WTF 1.3.0.
 - SQLite mediante el módulo `sqlite3` de la biblioteca estándar.
 - No se requieren ORM ni servidores de base de datos externos.
 
@@ -180,14 +191,14 @@ Para ejecutar la suite completa:
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Resultado comprobado en Semana 9:
+Resultado comprobado en Semana 11:
 
 ```text
-Ran 67 tests
+Ran 172 tests
 OK
 ```
 
-La suite contiene 9 pruebas de `database_manager`, 20 de `alumno_repository` y 38 de `alumnos_service`. Algunos métodos emplean `subTest` para comprobar varios valores. Las pruebas de persistencia utilizan bases SQLite temporales y aisladas; no modifican `data/edupass.sqlite`.
+La suite conserva las 137 pruebas anteriores y agrega 35 pruebas web de fábrica, autenticación, roles y listado de alumnos. Algunos métodos emplean `subTest` para comprobar varios valores. Las pruebas utilizan bases SQLite temporales y aisladas; no modifican `data/edupass.sqlite`.
 
 No existen pruebas gráficas permanentes en `tests/`. La interfaz fue revisada manualmente y mediante comprobaciones offscreen temporales.
 
@@ -211,13 +222,38 @@ python -m edupass.main
 
 El comando abre la ventana **Administración de alumnos**. La interfaz permite registrar, buscar por matrícula, editar, activar, desactivar y limpiar el formulario. Utiliza `data/edupass.sqlite`, la crea si no existe y conserva los alumnos entre ejecuciones. La base local está ignorada por Git.
 
+## Interfaz web
+
+Define las variables para la sesión actual de PowerShell. `EDUPASS_SECRET_KEY` es obligatoria y debe recibir un valor local privado; no se almacena en el repositorio.
+
+```powershell
+$env:PYTHONPATH="src"
+$env:EDUPASS_SECRET_KEY="<valor-local-privado>"
+$env:EDUPASS_DATABASE_PATH="data\edupass.sqlite"
+$env:EDUPASS_SESSION_MINUTES="30"
+$env:EDUPASS_HOST="127.0.0.1"
+$env:EDUPASS_PORT="5000"
+python -m edupass.web
+```
+
+El archivo `.env.example` documenta los nombres y valores no sensibles. El proyecto no carga archivos `.env` automáticamente y `.env` está ignorado por Git.
+
+Antes de iniciar sesión se debe crear interactivamente al menos un usuario de demostración. El script solicita la contraseña sin mostrarla ni guardarla en archivos:
+
+```powershell
+$env:PYTHONPATH="src"
+python scripts\create_demo_user.py
+```
+
+La web ofrece `/admin` y `/admin/alumnos` al rol administrador. El rol `escaner` recibe una vista de alcance pendiente en `/scanner`; todavía no existe cámara, captura de token ni validación QR.
+
 ## Uso de SQLite
 
 Cada forma de ejecución mantiene un propósito distinto:
 
 1. **Pruebas automatizadas:** bases temporales aisladas por prueba; no modifican la base local.
 2. **Demostración por consola:** base temporal eliminada automáticamente al terminar.
-3. **Interfaz gráfica:** `data/edupass.sqlite`, persistente entre ejecuciones e ignorada por Git.
+3. **Interfaz gráfica y web local:** `data/edupass.sqlite`, persistente entre ejecuciones e ignorada por Git.
 
 La base persistente no debe agregarse al repositorio.
 
@@ -234,8 +270,12 @@ La base persistente no debe agregarse al repositorio.
 
 ## Limitaciones actuales
 
-- La interfaz es un prototipo administrativo de escritorio; no existe todavía versión web, aplicación móvil ni diseño responsive.
-- QR, tutores, movimientos de entrada y salida, notificaciones, autenticación, usuarios y roles permanecen sin implementar.
+- Las interfaces PySide6 y web son prototipos académicos locales; no existe aplicación móvil ni publicación en Internet.
+- La cookie `Secure` está desactivada para la demostración HTTP local y debe activarse bajo HTTPS.
+- SQLite no se plantea como base de producción multiusuario.
+- QR, tutores, movimientos de entrada y salida, notificaciones, áreas, dispositivos e historial permanecen sin implementar.
+- La vista de escaneo no usa cámara ni simula validaciones.
+- La demostración no utiliza datos personales reales.
 - No existe carga ni vista previa real de fotografías.
 - No existe empaquetado instalable; actualmente los comandos indicados requieren `PYTHONPATH=src`.
 - Los archivos `.ui` y `.sql` deberán incluirse como datos del paquete cuando se implemente el empaquetado.
@@ -248,7 +288,7 @@ Estas limitaciones corresponden al alcance del corte actual y no representan fun
 - Integrar credenciales QR temporales y validación en línea.
 - Implementar movimientos y asociar tutores.
 - Incorporar notificaciones push.
-- Agregar usuarios, roles y autenticación.
+
 - Desarrollar clientes web o móviles y adaptar el panel a navegadores.
 - Agregar historial y auditoría funcional.
 - Preparar migraciones, empaquetado y distribución.
