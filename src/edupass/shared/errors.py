@@ -1,4 +1,4 @@
-"""Excepciones compartidas del modulo de alumnos."""
+"""Excepciones controladas compartidas por los modulos de EduPass."""
 
 
 class EduPassError(Exception):
@@ -23,3 +23,19 @@ class RepositoryError(EduPassError):
 
 class ConsultaSqlError(RepositoryError):
     """Error al localizar, leer o validar una consulta SQL externa."""
+
+
+class AuthenticationError(EduPassError):
+    """Error publico y generico al autenticar credenciales."""
+
+
+class AuthorizationError(EduPassError):
+    """Error causado por un rol sin autorizacion para una operacion."""
+
+
+class DuplicateUserError(ValidationError):
+    """Error causado por un correo de usuario ya registrado."""
+
+
+class InvalidRoleError(ValidationError):
+    """Error causado por un rol fuera del alcance de autenticacion."""

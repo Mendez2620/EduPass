@@ -1,10 +1,17 @@
-"""Constantes compartidas para el estado de los alumnos."""
+"""Constantes compartidas de EduPass."""
 
-ESTADO_ALUMNO_ACTIVO = "activo"
-ESTADO_ALUMNO_INACTIVO = "inactivo"
+ESTADO_ACTIVO = "activo"
+ESTADO_INACTIVO = "inactivo"
+
+ESTADO_ALUMNO_ACTIVO = ESTADO_ACTIVO
+ESTADO_ALUMNO_INACTIVO = ESTADO_INACTIVO
 ESTADOS_ALUMNO_VALIDOS = frozenset(
     {
         ESTADO_ALUMNO_ACTIVO,
         ESTADO_ALUMNO_INACTIVO,
     }
 )
+
+ROL_ADMINISTRADOR = "administrador"
+ROL_ESCANER = "escaner"
+ROLES_AUTENTICACION = (ROL_ADMINISTRADOR, ROL_ESCANER)
