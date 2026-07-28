@@ -125,8 +125,10 @@ La auditoría técnica publicada comprobó con una base temporal:
 7. cierre de sesión;
 8. cierre del servidor y eliminación del entorno temporal.
 
-Esta evidencia no sustituye las capturas finales ni acredita todavía todos los
-navegadores o tamaños de pantalla.
+Las capturas finales de este cierre agregan evidencia funcional con cuentas y
+alumnos ficticios. La vista responsiva fue comprobada en Chrome a 390 por 812
+píxeles; esta verificación no equivale a una validación pixel-perfect ni
+acredita todos los navegadores.
 
 ## 9. Evidencia Git
 
@@ -135,23 +137,54 @@ Commits técnicos:
 - `2e1c520e7cd51e57937d16b1321410c9ca8584ac`
 - `3520ddd797685773e3148932eb6b4bb1a70f2a3c`
 
-Antes del cierre documental, `master` y `origin/master` apuntaban a
-`3520ddd797685773e3148932eb6b4bb1a70f2a3c`, sin cambios rastreados ni staging.
-La carpeta `docs/presentacion_segundo_parcial/` permanecía sin rastrear y
-protegida. El commit de esta documentación será local y no se publicará, por lo
-que el remoto conservará el SHA técnico anterior.
+Al preparar las evidencias, `master` y `origin/master` apuntaban a
+`39733400b7cf6b353afc2d00dcc7aa9ff90d99de`, sin cambios rastreados ni staging.
+La carpeta `docs/presentacion_segundo_parcial/` permaneció sin rastrear y
+protegida.
 
-## 10. Evidencias visuales pendientes
+## 10. Evidencias visuales completadas
 
-No se crearon capturas en este cierre. Deben capturarse posteriormente:
+El [inventario de evidencias](evidencias_visuales/inventario_evidencias.md)
+documenta estado, resultado, limitación y requerimientos relacionados.
 
-1. Login.
-2. Dashboard de administrador.
-3. Listado de alumnos.
-4. Dashboard de escáner.
-5. Error 403.
-6. Error 404.
-7. Vista móvil.
-8. Salida de 172 pruebas.
-9. Historial de commits.
-10. Repositorio GitHub actualizado.
+| ID | Evidencia | Estado |
+|---|---|---|
+| E-11-01 | [Login web](evidencias_visuales/E-11-01_login_web.png) | Completada |
+| E-11-01B | [Error de credenciales](evidencias_visuales/E-11-01B_login_error_credenciales.png) | Completada con observación |
+| E-11-02 | [Dashboard de administrador](evidencias_visuales/E-11-02_dashboard_administrador.png) | Completada |
+| E-11-03A | [Listado vacío](evidencias_visuales/E-11-03A_listado_vacio.png) | Completada como caso límite |
+| E-11-03B | [Listado con alumnos](evidencias_visuales/E-11-03B_listado_con_alumnos.png) | Completada |
+| E-11-04 | [Dashboard de escáner](evidencias_visuales/E-11-04_dashboard_escaner.png) | Completada |
+| E-11-05 | [Error 403](evidencias_visuales/E-11-05_error_403.png) | Completada |
+| E-11-06 | [Error 404](evidencias_visuales/E-11-06_error_404.png) | Completada |
+| E-11-07 | [Vista responsiva](evidencias_visuales/E-11-07_vista_responsive.png) | Completada |
+| E-11-08 | [Suite de 172 pruebas](evidencias_visuales/E-11-08_pruebas_172_ok.png) | Completada con observación |
+| E-11-09 | [Historial y estado Git](evidencias_visuales/E-11-09_commits_git.png) | Completada con observación |
+| E-11-10 | [GitHub actualizado](evidencias_visuales/E-11-10_github_actualizado.png) | Completada |
+
+### Datos ficticios y privacidad
+
+- Usuarios: `Administrador Demo` y `Personal de Escaneo`.
+- Alumnos: `Ana López Demo` (`DEMO001`, activo) y `Carlos Pérez Demo`
+  (`DEMO002`, inactivo).
+- E-11-03A utilizó una SQLite temporal aislada para no borrar registros.
+- E-11-03B ocultó en el navegador filas preexistentes antes de la captura; la
+  base local no fue alterada para proteger información ajena a la demostración.
+- Ninguna captura contiene contraseña, `SECRET_KEY`, fotografía, ruta de
+  fotografía o datos personales reales.
+- E-11-10 fue recortada únicamente para retirar información pública
+  irrelevante de la barra lateral.
+
+La ejecución mostrada en E-11-08 terminó con:
+
+```text
+Ran 172 tests in 21.643s
+OK
+```
+
+Windows no expuso una ventana de consola capturable en esta sesión. Para E-11-08
+y E-11-09 se guardó la salida real en archivos temporales, se abrió en Chrome y
+se capturó sin modificar el contenido. Los registros temporales se eliminaron.
+
+QR, movimientos e historial continúan pendientes para Semana 12 conforme al
+alcance aprobado. Su ausencia no representa un incumplimiento de Semana 11.
