@@ -17,6 +17,26 @@ class AlumnoNoEncontradoError(EduPassError):
     """Error causado por la ausencia del alumno solicitado."""
 
 
+class AlumnoInactivoError(EduPassError):
+    """Error causado por un alumno que no puede usar una credencial."""
+
+
+class QRInvalidoError(EduPassError):
+    """Error causado por un token QR invalido o inexistente."""
+
+
+class QRVencidoError(EduPassError):
+    """Error causado por un token QR fuera de vigencia."""
+
+
+class QRUtilizadoError(EduPassError):
+    """Error causado por el segundo uso de un token QR."""
+
+
+class QRNoDisponibleError(EduPassError):
+    """Error causado por la ausencia de un token QR vigente."""
+
+
 class RepositoryError(EduPassError):
     """Error controlado de acceso a la persistencia."""
 
