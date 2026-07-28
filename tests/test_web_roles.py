@@ -100,6 +100,22 @@ class TestWebRoles(unittest.TestCase):
         self.assertNotIn("getUserMedia", body)
         self.assertNotIn("Registrar movimiento", body)
 
+    def test_admin_dashboard_reports_qr_credential_as_available(self):
+        self._login("admin@edupass.test")
+
+        body = self.client.get("/admin").get_data(as_text=True)
+
+        self.assertIn(
+            "La credencial QR temporal esta disponible desde el listado "
+            "de alumnos.",
+            body,
+        )
+        self.assertNotIn(
+            "La validacion QR y el registro de movimientos corresponden "
+            "al siguiente incremento.",
+            body,
+        )
+
     def test_unknown_route_uses_404_template(self):
         response = self.client.get("/ruta-inexistente")
 
