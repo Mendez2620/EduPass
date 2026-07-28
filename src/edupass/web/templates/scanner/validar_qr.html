@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Personal de escaneo</p>
+  <h1>Validar token QR</h1>
+  <p>Escribe o pega el token temporal. La cámara no está disponible en esta etapa.</p>
+</section>
+
+<section class="validation-panel" aria-labelledby="manual-validation-title">
+  <h2 id="manual-validation-title">Captura manual</h2>
+  <form method="post" action="{{ url_for('scanner.validar_qr') }}" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="field">
+      {{ form.token.label }}
+      {{ form.token(class_="manual-token", maxlength="43", autocomplete="off", spellcheck="false") }}
+      {% for error in form.token.errors %}
+        <p class="field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+    {{ form.submit(class_="button button-primary") }}
+  </form>
+
+  {% if result %}
+    <div class="validation-result validation-result-{{ result.estado }}" role="status">
+      <strong>{{ "Validación correcta" if result.estado == "valido" else "Token rechazado" }}</strong>
+      <p>{{ result.mensaje }}</p>
+    </div>
+  {% endif %}
+</section>
+
+<a class="button button-secondary bordered-button" href="{{ url_for('scanner.dashboard') }}">Volver al panel</a>
+{% endblock %}

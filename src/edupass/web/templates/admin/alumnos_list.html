@@ -19,6 +19,7 @@
           <th scope="col">Grado</th>
           <th scope="col">Grupo</th>
           <th scope="col">Estado</th>
+          <th scope="col">Credencial</th>
         </tr>
       </thead>
       <tbody>
@@ -30,6 +31,15 @@
             <td>{{ alumno.grado }}</td>
             <td>{{ alumno.grupo }}</td>
             <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            <td class="credential-action">
+              <form method="post" action="{{ url_for('admin.generar_credencial') }}">
+                {% if credencial_form.csrf_token is defined %}
+                  {{ credencial_form.csrf_token() }}
+                {% endif %}
+                {{ credencial_form.alumno_id(value=alumno.alumno_id, id="alumno_id_" ~ alumno.alumno_id) }}
+                <button class="button button-primary" type="submit"{% if alumno.estado != "activo" %} disabled aria-disabled="true"{% endif %}>Generar credencial</button>
+              </form>
+            </td>
           </tr>
         {% endfor %}
       </tbody>

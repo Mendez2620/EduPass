@@ -1,4 +1,3 @@
-import html
 from pathlib import Path
 import sys
 import tempfile
@@ -90,18 +89,16 @@ class TestWebRoles(unittest.TestCase):
                     response.get_data(as_text=True),
                 )
 
-    def test_scanner_dashboard_is_an_honest_placeholder(self):
+    def test_scanner_dashboard_offers_manual_qr_validation(self):
         self._login("scanner@edupass.test")
 
         body = self.client.get("/scanner").get_data(as_text=True)
 
-        self.assertIn(
-            "El m\u00f3dulo de escaneo y validaci\u00f3n QR se implementar\u00e1 "
-            "en el siguiente incremento.",
-            html.unescape(body),
-        )
-        self.assertNotIn("camera", body.lower())
-        self.assertNotIn("token", body.lower())
+        self.assertIn("Validacion QR", body)
+        self.assertIn("/scanner/validar", body)
+        self.assertIn("Validar token", body)
+        self.assertNotIn("getUserMedia", body)
+        self.assertNotIn("Registrar movimiento", body)
 
     def test_unknown_route_uses_404_template(self):
         response = self.client.get("/ruta-inexistente")

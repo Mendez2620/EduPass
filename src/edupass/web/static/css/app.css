@@ -342,3 +342,163 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bordered-button {
+  border-color: var(--border);
+}
+
+.credential-action form,
+.credential-actions form {
+  margin: 0;
+}
+
+.credential-action .button {
+  white-space: nowrap;
+}
+
+.credential-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 32px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.credential-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.credential-data div {
+  padding: 12px;
+  background: var(--canvas);
+  border-left: 3px solid var(--brand);
+}
+
+.credential-data dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.credential-data dd {
+  margin: 3px 0 0;
+  font-weight: 750;
+}
+
+.credential-warning {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: var(--warning-bg);
+}
+
+.countdown {
+  margin: 18px 0 0;
+  color: var(--brand-dark);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.qr-panel {
+  min-width: 0;
+  text-align: center;
+}
+
+.qr-image {
+  display: block;
+  width: min(100%, 340px);
+  aspect-ratio: 1;
+  margin: 0 auto 18px;
+  background: #ffffff;
+}
+
+.manual-token-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 750;
+  text-align: left;
+}
+
+.manual-token {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid #89988f;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.credential-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.validation-panel {
+  max-width: 720px;
+  margin-bottom: 20px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.validation-result {
+  margin-top: 20px;
+  padding: 16px;
+  border-left: 4px solid var(--brand);
+}
+
+.validation-result p {
+  margin: 5px 0 0;
+}
+
+.validation-result-valido {
+  background: var(--success-bg);
+}
+
+.validation-result-rechazado {
+  background: var(--error-bg);
+  border-left-color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .credential-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px;
+  }
+
+  .qr-panel {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .credential-data {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credential-actions,
+  .credential-actions .button,
+  .credential-actions form,
+  .validation-panel .button {
+    width: 100%;
+  }
+
+  .manual-token {
+    font-size: 0.82rem;
+  }
+}

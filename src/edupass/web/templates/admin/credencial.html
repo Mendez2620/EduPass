@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administracion</p>
+  <h1>Credencial digital</h1>
+  <p>Vista administrativa de demostración. No es un portal autónomo del alumno.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error">{{ error_message }}</p>
+  <a class="button button-primary" href="{{ url_for('admin.alumnos_list') }}">Volver al listado</a>
+{% elif credencial %}
+  <section class="credential-card" aria-labelledby="credential-name">
+    <div class="credential-details">
+      <div>
+        <p class="eyebrow">Alumno activo</p>
+        <h2 id="credential-name">{{ credencial.nombre }}</h2>
+      </div>
+      <dl class="credential-data">
+        <div><dt>Matrícula</dt><dd>{{ credencial.matricula_enmascarada }}</dd></div>
+        <div><dt>Grado</dt><dd>{{ credencial.grado }}</dd></div>
+        <div><dt>Grupo</dt><dd>{{ credencial.grupo }}</dd></div>
+        <div><dt>Estado</dt><dd><span class="status status-{{ credencial.estado }}">{{ credencial.estado }}</span></dd></div>
+      </dl>
+      <p class="credential-warning">Vigencia de {{ credencial.vigencia_segundos }} segundos. El token es de un solo uso.</p>
+      <p class="credential-warning">Validar esta credencial no registra ningun movimiento.</p>
+      <p><strong>Generado:</strong> {{ credencial.generado_en }}</p>
+      <p><strong>Vence:</strong> {{ credencial.expira_en }}</p>
+      <p class="countdown" data-credential-countdown data-expires-at="{{ credencial.expira_en }}" aria-live="polite">Calculando tiempo restante...</p>
+    </div>
+
+    <div class="qr-panel">
+      <img class="qr-image" src="{{ qr_data_uri }}" alt="Codigo QR temporal de la credencial">
+      <p class="manual-token-label">Token manual</p>
+      <code id="manual-token" class="manual-token" tabindex="0">{{ credencial.token }}</code>
+      <p class="scope-note">Alternativa manual para el personal de escaneo.</p>
+    </div>
+  </section>
+
+  <div class="credential-actions">
+    <form method="post" action="{{ url_for('admin.renovar_credencial') }}" data-renewal-form>
+      {{ renovar_form.hidden_tag() }}
+      {{ renovar_form.submit(class_="button button-primary") }}
+    </form>
+    <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumnos_list') }}">Volver al listado</a>
+  </div>
+  <script src="{{ url_for('static', filename='js/credencial.js') }}" defer></script>
+{% endif %}
+{% endblock %}

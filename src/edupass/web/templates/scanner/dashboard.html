@@ -6,5 +6,13 @@
   <p>Rol: {{ current_user.rol_nombre }}</p>
 </section>
 
-<p class="notice">El m&oacute;dulo de escaneo y validaci&oacute;n QR se implementar&aacute; en el siguiente incremento.</p>
+<section class="action-panel" aria-labelledby="validation-title">
+  <div>
+    <h2 id="validation-title">Validacion QR</h2>
+    <p>Captura manualmente un token temporal y de un solo uso.</p>
+  </div>
+  <a class="button button-primary" href="{{ url_for('scanner.validar_qr') }}">Validar token</a>
+</section>
+
+<p class="notice">La camara y el registro de movimientos no forman parte de esta etapa.</p>
 {% endblock %}
