@@ -59,3 +59,23 @@ class DuplicateUserError(ValidationError):
 
 class InvalidRoleError(ValidationError):
     """Error causado por un rol fuera del alcance de autenticacion."""
+
+
+class MovimientoError(EduPassError):
+    """Error controlado del registro de movimientos."""
+
+
+class TipoMovimientoInvalidoError(MovimientoError):
+    """Error causado por un tipo de movimiento no permitido."""
+
+
+class SecuenciaMovimientoError(MovimientoError):
+    """Error causado por una secuencia de entrada o salida invalida."""
+
+
+class UsuarioEscanerInvalidoError(MovimientoError):
+    """Error causado por un responsable inexistente o no autorizado."""
+
+
+class MovimientoNoEncontradoError(MovimientoError):
+    """Error causado por la ausencia del movimiento solicitado."""

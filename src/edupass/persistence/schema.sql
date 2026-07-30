@@ -123,3 +123,5 @@ CREATE TABLE IF NOT EXISTS intentos_rechazados (
     FOREIGN KEY (area_id) REFERENCES areas_internas (area_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_movimientos_alumno_fecha
+ON movimientos (alumno_id, fecha_hora DESC, movimiento_id DESC);

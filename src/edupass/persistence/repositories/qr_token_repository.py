@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from edupass.persistence import database_manager
+from edupass.persistence.repositories._qr_consumption import (
+    CONSUMO_ALUMNO_INACTIVO,
+    CONSUMO_CONSUMIDO,
+    CONSUMO_INVALIDADO,
+    CONSUMO_INEXISTENTE,
+    CONSUMO_UTILIZADO,
+    CONSUMO_VENCIDO,
+    ResultadoConsumo,
+    clasificar_fila_qr,
+)
 from edupass.shared.constants import (
-    ESTADO_ALUMNO_ACTIVO,
     QR_ESTADO_ACTIVO,
     QR_ESTADO_INVALIDADO,
     QR_ESTADO_UTILIZADO,
@@ -23,23 +31,6 @@ _SELECT_BY_HASH_FILE = "select_qr_token_by_hash.sql"
 _SELECT_METADATA_FILE = "select_qr_token_metadata_by_alumno.sql"
 _INVALIDATE_FILE = "invalidate_active_qr_tokens_by_alumno.sql"
 _CONSUME_FILE = "consume_qr_token_conditionally.sql"
-
-CONSUMO_CONSUMIDO = "consumido"
-CONSUMO_INEXISTENTE = "inexistente"
-CONSUMO_VENCIDO = "vencido"
-CONSUMO_UTILIZADO = "utilizado"
-CONSUMO_INVALIDADO = "invalidado"
-CONSUMO_ALUMNO_INACTIVO = "alumno_inactivo"
-
-
-@dataclass(frozen=True)
-class ResultadoConsumo:
-    """Clasificacion interna de un intento atomico de consumo."""
-
-    resultado: str
-    qr_id: int | None = None
-    alumno_id: int | None = None
-    consumido_en: str | None = None
 
 
 def _load_query(file_name: str) -> str:
@@ -78,24 +69,7 @@ def _classify_row(
     row: dict[str, Any] | None,
     ahora: str,
 ) -> ResultadoConsumo:
-    if row is None:
-        return ResultadoConsumo(CONSUMO_INEXISTENTE)
-
-    common = {
-        "qr_id": row["qr_id"],
-        "alumno_id": row["alumno_id"],
-    }
-    if row["alumno_estado"] != ESTADO_ALUMNO_ACTIVO:
-        return ResultadoConsumo(CONSUMO_ALUMNO_INACTIVO, **common)
-    if row["estado"] == QR_ESTADO_UTILIZADO or row["usado_en"] is not None:
-        return ResultadoConsumo(CONSUMO_UTILIZADO, **common)
-    if row["estado"] == QR_ESTADO_INVALIDADO:
-        return ResultadoConsumo(CONSUMO_INVALIDADO, **common)
-    if row["estado"] != QR_ESTADO_ACTIVO:
-        return ResultadoConsumo(CONSUMO_INVALIDADO, **common)
-    if row["expira_en"] <= ahora:
-        return ResultadoConsumo(CONSUMO_VENCIDO, **common)
-    return ResultadoConsumo(QR_ESTADO_ACTIVO, **common)
+    return clasificar_fila_qr(row, ahora)
 
 
 def reemplazar_token_activo(
