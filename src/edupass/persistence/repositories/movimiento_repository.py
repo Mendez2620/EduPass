@@ -44,6 +44,8 @@ _SELECT_LAST_FILE = "select_last_movimiento_by_alumno.sql"
 _CONSUME_QR_FILE = "consume_qr_token_for_movement.sql"
 _INSERT_FILE = "insert_movimiento.sql"
 _SELECT_BY_ID_FILE = "select_movimiento_by_id.sql"
+_SELECT_BY_STUDENT_FILE = "select_movimientos_by_alumno.sql"
+_COUNT_BY_STUDENT_FILE = "count_movimientos_by_alumno.sql"
 
 
 def _load_query(file_name: str) -> str:
@@ -147,6 +149,40 @@ def _fetch_one(
         return _row_to_dict(cursor.fetchone())
     except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
         raise RepositoryError("No se pudo consultar el movimiento.") from exc
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+
+def _fetch_all(
+    file_name: str,
+    alumno_id: int,
+    limit: int,
+    offset: int,
+    database_path: Path | None,
+) -> list[dict[str, Any]]:
+    """Ejecuta una consulta paginada de solo lectura."""
+    query = _load_query(file_name)
+    connection = None
+    cursor = None
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        cursor = connection.execute(
+            query,
+            (alumno_id, limit, offset),
+        )
+        return [
+            dict(row)
+            for row in cursor.fetchall()
+        ]
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        raise RepositoryError(
+            "No se pudo consultar el historial de movimientos."
+        ) from exc
     finally:
         if cursor is not None:
             cursor.close()
@@ -267,3 +303,40 @@ def obtener_por_id(
 ) -> dict[str, Any] | None:
     """Obtiene un movimiento seguro por identificador."""
     return _fetch_one(_SELECT_BY_ID_FILE, (movimiento_id,), database_path)
+
+def listar_por_alumno(
+    alumno_id: int,
+    limit: int,
+    offset: int,
+    database_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Lista movimientos seguros del alumno con paginacion controlada."""
+    return _fetch_all(
+        _SELECT_BY_STUDENT_FILE,
+        alumno_id,
+        limit,
+        offset,
+        database_path,
+    )
+
+
+def contar_por_alumno(
+    alumno_id: int,
+    database_path: Path | None = None,
+) -> int:
+    """Cuenta los movimientos existentes de un alumno."""
+    result = _fetch_one(
+        _COUNT_BY_STUDENT_FILE,
+        (alumno_id,),
+        database_path,
+    )
+    if result is None or "total_movimientos" not in result:
+        raise RepositoryError(
+            "No se pudo contar el historial de movimientos."
+        )
+    try:
+        return int(result["total_movimientos"])
+    except (TypeError, ValueError) as exc:
+        raise RepositoryError(
+            "El total de movimientos no es valido."
+        ) from exc

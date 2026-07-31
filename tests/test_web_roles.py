@@ -94,11 +94,11 @@ class TestWebRoles(unittest.TestCase):
 
         body = self.client.get("/scanner").get_data(as_text=True)
 
-        self.assertIn("Validacion QR", body)
+        self.assertIn("Registro de movimientos", body)
         self.assertIn("/scanner/validar", body)
-        self.assertIn("Validar token", body)
+        self.assertIn("Registrar entrada o salida", body)
         self.assertNotIn("getUserMedia", body)
-        self.assertNotIn("Registrar movimiento", body)
+        self.assertIn("Registra entradas y salidas", body)
 
     def test_admin_dashboard_reports_qr_credential_as_available(self):
         self._login("admin@edupass.test")

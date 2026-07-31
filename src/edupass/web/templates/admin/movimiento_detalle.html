@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Historial administrativo</p>
+  <h1>Detalle de movimiento</h1>
+  <p>Consulta de solo lectura del registro seleccionado.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error">{{ error_message }}</p>
+{% elif movimiento %}
+  <section class="movement-detail" aria-labelledby="movement-detail-title">
+    <h2 id="movement-detail-title">Movimiento {{ movimiento.movimiento_id }}</h2>
+    <dl class="detail-grid">
+      <div><dt>Alumno</dt><dd>{{ movimiento.alumno_nombre }}</dd></div>
+      <div><dt>Matricula</dt><dd>{{ movimiento.matricula }}</dd></div>
+      <div><dt>Tipo</dt><dd>{{ "Entrada" if movimiento.tipo_movimiento == "entrada" else "Salida" }}</dd></div>
+      <div><dt>Fecha y hora UTC</dt><dd>{{ movimiento.fecha_hora }}</dd></div>
+      <div><dt>Punto</dt><dd>{{ "Acceso principal" if movimiento.punto_plantel == "acceso_principal" else movimiento.punto_plantel }}</dd></div>
+      <div><dt>Usuario responsable</dt><dd>{{ movimiento.usuario_nombre or "No disponible" }}</dd></div>
+    </dl>
+  </section>
+  <a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=movimiento.alumno_id) }}">Volver al historial</a>
+{% else %}
+  <p class="message message-error">No se encontro el movimiento solicitado.</p>
+  <a class="button button-secondary bordered-button" href="{{ url_for('admin.historial') }}">Volver al historial</a>
+{% endif %}
+{% endblock %}

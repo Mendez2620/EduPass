@@ -2,14 +2,21 @@
 {% block content %}
 <section class="page-heading">
   <p class="eyebrow">Personal de escaneo</p>
-  <h1>Validar token QR</h1>
-  <p>Escribe o pega el token temporal. La cámara no está disponible en esta etapa.</p>
+  <h1>Registrar movimiento</h1>
+  <p>Selecciona Entrada o Salida y captura manualmente el token. La camara permanece pendiente.</p>
 </section>
 
 <section class="validation-panel" aria-labelledby="manual-validation-title">
   <h2 id="manual-validation-title">Captura manual</h2>
-  <form method="post" action="{{ url_for('scanner.validar_qr') }}" novalidate>
+  <form class="movement-form" method="post" action="{{ url_for('scanner.validar_qr') }}" novalidate data-movement-form>
     {{ form.hidden_tag() }}
+    <div class="field">
+      {{ form.tipo_movimiento.label }}
+      {{ form.tipo_movimiento(class_="movement-select") }}
+      {% for error in form.tipo_movimiento.errors %}
+        <p class="field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
     <div class="field">
       {{ form.token.label }}
       {{ form.token(class_="manual-token", maxlength="43", autocomplete="off", spellcheck="false") }}
@@ -17,16 +24,19 @@
         <p class="field-error">{{ error }}</p>
       {% endfor %}
     </div>
-    {{ form.submit(class_="button button-primary") }}
+    <button class="button button-primary" type="submit" data-movement-submit>Registrar movimiento</button>
   </form>
 
   {% if result %}
     <div class="validation-result validation-result-{{ result.estado }}" role="status">
-      <strong>{{ "Validación correcta" if result.estado == "valido" else "Token rechazado" }}</strong>
+      <strong>{{ "Movimiento registrado" if result.estado == "valido" else "Movimiento rechazado" }}</strong>
       <p>{{ result.mensaje }}</p>
     </div>
   {% endif %}
 </section>
 
 <a class="button button-secondary bordered-button" href="{{ url_for('scanner.dashboard') }}">Volver al panel</a>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/scanner_validation.js') }}" defer></script>
 {% endblock %}

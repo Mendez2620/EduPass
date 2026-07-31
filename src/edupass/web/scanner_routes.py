@@ -1,10 +1,11 @@
-"""Rutas de validacion manual para personal autorizado de escaneo."""
+"""Rutas de registro manual para personal autorizado de escaneo."""
 
 from __future__ import annotations
 
 from flask import Blueprint, current_app, make_response, render_template
+from flask_login import current_user
 
-from edupass.modules.validacion_qr import validacion_service
+from edupass.modules.movimientos import movimientos_service
 from edupass.shared.constants import ROL_ESCANER
 from edupass.shared.errors import (
     AlumnoInactivoError,
@@ -12,6 +13,8 @@ from edupass.shared.errors import (
     QRUtilizadoError,
     QRVencidoError,
     RepositoryError,
+    SecuenciaMovimientoError,
+    UsuarioEscanerInvalidoError,
 )
 from edupass.web.forms import ValidarTokenQRForm
 from edupass.web.security import role_required
@@ -31,7 +34,7 @@ def _render_validation(form, result=None, status=200):
             "scanner/validar_qr.html",
             form=form,
             result=result,
-            title="Validar token QR",
+            title="Registrar movimiento",
         ),
         status,
     )
@@ -55,21 +58,29 @@ def validar_qr():
 
     if not form.validate_on_submit():
         form.token.data = ""
+        form.tipo_movimiento.data = ""
         return _render_validation(
             form,
             {
                 "estado": "rechazado",
-                "mensaje": "Ingresa un token QR válido de 43 caracteres.",
+                "mensaje": (
+                    "Selecciona un tipo de movimiento e ingresa un token "
+                    "QR válido de 43 caracteres."
+                ),
             },
             400,
         )
 
     token = form.token.data
+    tipo_movimiento = form.tipo_movimiento.data
     form.token.data = ""
+    form.tipo_movimiento.data = ""
     try:
-        result = validacion_service.consumir_token_qr(
-            token,
-            current_app.config["DATABASE_PATH"],
+        result = movimientos_service.registrar_movimiento_con_token(
+            token=token,
+            tipo_movimiento=tipo_movimiento,
+            usuario_id=current_user.usuario_id,
+            database_path=current_app.config["DATABASE_PATH"],
         )
         public_result = {
             "estado": "valido",
@@ -78,34 +89,46 @@ def validar_qr():
     except QRVencidoError:
         public_result = {
             "estado": "rechazado",
-            "mensaje": "El token ha vencido.",
+            "mensaje": "Token vencido.",
         }
     except QRUtilizadoError:
         public_result = {
             "estado": "rechazado",
-            "mensaje": "El token ya fue utilizado.",
+            "mensaje": "Token ya utilizado.",
         }
     except QRInvalidoError:
         public_result = {
             "estado": "rechazado",
-            "mensaje": "El token proporcionado no es válido.",
+            "mensaje": "Token inválido.",
         }
     except AlumnoInactivoError:
         public_result = {
             "estado": "rechazado",
-            "mensaje": "El alumno se encuentra inactivo.",
+            "mensaje": "Alumno inactivo.",
         }
+    except SecuenciaMovimientoError as exc:
+        public_result = {
+            "estado": "rechazado",
+            "mensaje": str(exc),
+        }
+    except UsuarioEscanerInvalidoError:
+        return _render_validation(
+            form,
+            {
+                "estado": "rechazado",
+                "mensaje": "Usuario de escáner no autorizado.",
+            },
+            403,
+        )
     except RepositoryError:
         current_app.logger.warning(
-            "No fue posible completar la validacion QR."
+            "No fue posible registrar el movimiento."
         )
         return _render_validation(
             form,
             {
                 "estado": "rechazado",
-                "mensaje": (
-                    "No fue posible validar el token en este momento."
-                ),
+                "mensaje": "No fue posible registrar el movimiento.",
             },
             500,
         )

@@ -1,7 +1,13 @@
 """Formularios de la interfaz web de EduPass."""
 
 from flask_wtf import FlaskForm
-from wtforms import HiddenField, PasswordField, StringField, SubmitField
+from wtforms import (
+    HiddenField,
+    PasswordField,
+    SelectField,
+    StringField,
+    SubmitField,
+)
 from wtforms.validators import DataRequired, Length
 
 
@@ -32,9 +38,18 @@ class RenovarCredencialForm(FlaskForm):
 
 
 class ValidarTokenQRForm(FlaskForm):
+    tipo_movimiento = SelectField(
+        "Tipo de movimiento",
+        choices=[
+            ("", "Selecciona una opcion"),
+            ("entrada", "Entrada"),
+            ("salida", "Salida"),
+        ],
+        validators=[DataRequired()],
+    )
     token = StringField(
         "Token QR",
         validators=[DataRequired(), Length(max=43)],
         render_kw={"autocomplete": "off"},
     )
-    submit = SubmitField("Validar token")
+    submit = SubmitField("Registrar movimiento")

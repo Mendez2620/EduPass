@@ -1,19 +1,21 @@
-"""Rutas administrativas de consulta y credencial controlada."""
+"""Rutas administrativas de consulta, credencial e historial."""
 
 from __future__ import annotations
 
 import base64
 from typing import Any
 
-from flask import Blueprint, current_app, make_response, render_template
+from flask import Blueprint, current_app, make_response, render_template, request
 
 from edupass.modules.alumnos import alumnos_service
 from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
+from edupass.modules.historial import historial_service
 from edupass.shared.constants import ROL_ADMINISTRADOR
 from edupass.shared.errors import (
     AlumnoInactivoError,
     AlumnoNoEncontradoError,
+    MovimientoNoEncontradoError,
     RepositoryError,
     ValidationError,
 )
@@ -64,6 +66,30 @@ def _render_credencial(
     return _with_security_headers(response)
 
 
+def _render_historial(*, status: int = 200, **context):
+    response = make_response(
+        render_template(
+            "admin/historial.html",
+            title="Historial de movimientos",
+            **context,
+        ),
+        status,
+    )
+    return _with_security_headers(response)
+
+
+def _render_movimiento_detalle(movimiento, *, status: int = 200):
+    response = make_response(
+        render_template(
+            "admin/movimiento_detalle.html",
+            movimiento=movimiento,
+            title="Detalle de movimiento",
+        ),
+        status,
+    )
+    return _with_security_headers(response)
+
+
 def _alumno_id_from_form(form) -> int:
     try:
         alumno_id = int(form.alumno_id.data)
@@ -74,6 +100,20 @@ def _alumno_id_from_form(form) -> int:
     if alumno_id <= 0:
         raise ValidationError("El identificador del alumno no es valido.")
     return alumno_id
+
+
+def _safe_students(rows):
+    return [
+        {
+            "alumno_id": row.get("alumno_id"),
+            "nombre": row.get("nombre"),
+            "matricula": row.get("matricula"),
+            "grado": row.get("grado"),
+            "grupo": row.get("grupo"),
+            "estado": row.get("estado"),
+        }
+        for row in rows
+    ]
 
 
 def _handle_credencial_request(form, operation):
@@ -141,20 +181,11 @@ def alumnos_list():
     error_message = None
     alumnos = []
     try:
-        service_rows = alumnos_service.listar_alumnos(
-            current_app.config["DATABASE_PATH"]
+        alumnos = _safe_students(
+            alumnos_service.listar_alumnos(
+                current_app.config["DATABASE_PATH"]
+            )
         )
-        alumnos = [
-            {
-                "alumno_id": row.get("alumno_id"),
-                "nombre": row.get("nombre"),
-                "matricula": row.get("matricula"),
-                "grado": row.get("grado"),
-                "grupo": row.get("grupo"),
-                "estado": row.get("estado"),
-            }
-            for row in service_rows
-        ]
     except RepositoryError:
         current_app.logger.warning(
             "No fue posible obtener el listado administrativo de alumnos."
@@ -170,6 +201,104 @@ def alumnos_list():
         credencial_form=GenerarCredencialForm(),
         title="Alumnos",
     )
+
+
+@admin_blueprint.get("/historial")
+@role_required(ROL_ADMINISTRADOR)
+def historial():
+    try:
+        alumnos = _safe_students(
+            alumnos_service.listar_alumnos(
+                current_app.config["DATABASE_PATH"]
+            )
+        )
+        return _render_historial(
+            alumnos=alumnos,
+            historial=None,
+            error_message=None,
+        )
+    except RepositoryError:
+        current_app.logger.warning(
+            "No fue posible obtener los alumnos para el historial."
+        )
+        return _render_historial(
+            alumnos=[],
+            historial=None,
+            error_message="No fue posible consultar el historial.",
+            status=500,
+        )
+
+
+@admin_blueprint.get("/historial/<int:alumno_id>")
+@role_required(ROL_ADMINISTRADOR)
+def historial_alumno(alumno_id: int):
+    raw_page = request.args.get("page", "1")
+    try:
+        page = int(raw_page)
+        historial_data = historial_service.consultar_historial_alumno(
+            alumno_id,
+            pagina=page,
+            database_path=current_app.config["DATABASE_PATH"],
+        )
+        return _render_historial(
+            alumnos=[],
+            historial=historial_data,
+            error_message=None,
+        )
+    except (TypeError, ValueError, ValidationError):
+        return _render_historial(
+            alumnos=[],
+            historial=None,
+            error_message="La página solicitada no es válida.",
+            status=400,
+        )
+    except (AlumnoNoEncontradoError, MovimientoNoEncontradoError):
+        return _render_historial(
+            alumnos=[],
+            historial=None,
+            error_message="No se encontró el historial solicitado.",
+            status=404,
+        )
+    except RepositoryError:
+        current_app.logger.warning(
+            "No fue posible consultar el historial del alumno."
+        )
+        return _render_historial(
+            alumnos=[],
+            historial=None,
+            error_message="No fue posible consultar el historial.",
+            status=500,
+        )
+
+
+@admin_blueprint.get(
+    "/historial/<int:alumno_id>/movimientos/<int:movimiento_id>"
+)
+@role_required(ROL_ADMINISTRADOR)
+def movimiento_detalle(alumno_id: int, movimiento_id: int):
+    try:
+        movimiento = historial_service.consultar_movimiento(
+            movimiento_id,
+            alumno_id=alumno_id,
+            database_path=current_app.config["DATABASE_PATH"],
+        )
+        return _render_movimiento_detalle(movimiento)
+    except MovimientoNoEncontradoError:
+        return _render_movimiento_detalle(None, status=404)
+    except RepositoryError:
+        current_app.logger.warning(
+            "No fue posible consultar el detalle del movimiento."
+        )
+        response = make_response(
+            render_template(
+                "admin/movimiento_detalle.html",
+                movimiento=None,
+                error_message="No fue posible consultar el movimiento.",
+                title="Detalle de movimiento",
+            ),
+            500,
+        )
+        return _with_security_headers(response)
 
 
 @admin_blueprint.post("/credencial")

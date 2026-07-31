@@ -20,6 +20,7 @@
           <th scope="col">Grupo</th>
           <th scope="col">Estado</th>
           <th scope="col">Credencial</th>
+          <th scope="col">Historial</th>
         </tr>
       </thead>
       <tbody>
@@ -40,6 +41,7 @@
                 <button class="button button-primary" type="submit"{% if alumno.estado != "activo" %} disabled aria-disabled="true"{% endif %}>Generar credencial</button>
               </form>
             </td>
+            <td><a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=alumno.alumno_id) }}">Ver historial</a></td>
           </tr>
         {% endfor %}
       </tbody>

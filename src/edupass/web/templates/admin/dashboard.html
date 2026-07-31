@@ -14,5 +14,13 @@
   <a class="button button-primary" href="{{ url_for('admin.alumnos_list') }}">Ver alumnos</a>
 </section>
 
-<p class="notice">La credencial QR temporal esta disponible desde el listado de alumnos. El registro de movimientos corresponde a una etapa posterior.</p>
+<section class="action-panel" aria-labelledby="history-title">
+  <div>
+    <h2 id="history-title">Historial de movimientos</h2>
+    <p>Consulta las entradas y salidas registradas por alumno.</p>
+  </div>
+  <a class="button button-primary" href="{{ url_for('admin.historial') }}">Ver historial</a>
+</section>
+
+<p class="notice">La credencial QR temporal esta disponible desde el listado de alumnos.</p>
 {% endblock %}

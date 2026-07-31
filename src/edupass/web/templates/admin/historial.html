@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administracion</p>
+  <h1>Historial de movimientos</h1>
+  <p>Consulta de solo lectura de entradas y salidas por alumno.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error">{{ error_message }}</p>
+{% elif historial %}
+  <section class="history-student" aria-labelledby="student-history-title">
+    <h2 id="student-history-title">{{ historial.alumno.nombre }}</h2>
+    <dl class="detail-grid">
+      <div><dt>Matricula</dt><dd>{{ historial.alumno.matricula }}</dd></div>
+      <div><dt>Grado</dt><dd>{{ historial.alumno.grado }}</dd></div>
+      <div><dt>Grupo</dt><dd>{{ historial.alumno.grupo }}</dd></div>
+      <div><dt>Estado</dt><dd><span class="status status-{{ historial.alumno.estado }}">{{ historial.alumno.estado }}</span></dd></div>
+    </dl>
+  </section>
+
+  {% if historial.movimientos %}
+    <div class="table-scroll history-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Tipo</th>
+            <th scope="col">Fecha y hora UTC</th>
+            <th scope="col">Punto</th>
+            <th scope="col">Responsable</th>
+            <th scope="col">Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for movimiento in historial.movimientos %}
+            <tr>
+              <td>{{ "Entrada" if movimiento.tipo_movimiento == "entrada" else "Salida" }}</td>
+              <td>{{ movimiento.fecha_hora }}</td>
+              <td>{{ "Acceso principal" if movimiento.punto_plantel == "acceso_principal" else movimiento.punto_plantel }}</td>
+              <td>{{ movimiento.usuario_nombre or "No disponible" }}</td>
+              <td><a class="button button-secondary bordered-button" href="{{ url_for('admin.movimiento_detalle', alumno_id=historial.alumno.alumno_id, movimiento_id=movimiento.movimiento_id) }}">Ver detalle</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if historial.paginacion.total_paginas > 1 %}
+      <nav class="pagination" aria-label="Paginacion del historial">
+        {% if historial.paginacion.tiene_anterior %}
+          <a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=historial.alumno.alumno_id, page=historial.paginacion.pagina - 1) }}">Anterior</a>
+        {% endif %}
+        <span>Pagina {{ historial.paginacion.pagina }} de {{ historial.paginacion.total_paginas }}</span>
+        {% if historial.paginacion.tiene_siguiente %}
+          <a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=historial.alumno.alumno_id, page=historial.paginacion.pagina + 1) }}">Siguiente</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p class="empty-state">No hay movimientos registrados para este alumno.</p>
+  {% endif %}
+
+  <a class="button button-secondary bordered-button" href="{{ url_for('admin.historial') }}">Seleccionar otro alumno</a>
+{% elif alumnos %}
+  <div class="table-scroll history-table">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Nombre</th>
+          <th scope="col">Matricula</th>
+          <th scope="col">Grado</th>
+          <th scope="col">Grupo</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Historial</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alumno in alumnos %}
+          <tr>
+            <td>{{ alumno.nombre }}</td>
+            <td>{{ alumno.matricula }}</td>
+            <td>{{ alumno.grado }}</td>
+            <td>{{ alumno.grupo }}</td>
+            <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            <td><a class="button button-primary" href="{{ url_for('admin.historial_alumno', alumno_id=alumno.alumno_id) }}">Ver historial</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="empty-state">No hay alumnos registrados para mostrar.</p>
+{% endif %}
+{% endblock %}

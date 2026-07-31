@@ -6,13 +6,13 @@
   <p>Rol: {{ current_user.rol_nombre }}</p>
 </section>
 
-<section class="action-panel" aria-labelledby="validation-title">
+<section class="action-panel" aria-labelledby="movement-title">
   <div>
-    <h2 id="validation-title">Validacion QR</h2>
-    <p>Captura manualmente un token temporal y de un solo uso.</p>
+    <h2 id="movement-title">Registro de movimientos</h2>
+    <p>Registra entradas y salidas mediante un token temporal de un solo uso.</p>
   </div>
-  <a class="button button-primary" href="{{ url_for('scanner.validar_qr') }}">Validar token</a>
+  <a class="button button-primary" href="{{ url_for('scanner.validar_qr') }}">Registrar entrada o salida</a>
 </section>
 
-<p class="notice">La camara y el registro de movimientos no forman parte de esta etapa.</p>
+<p class="notice">La captura es manual; la camara permanece pendiente.</p>
 {% endblock %}

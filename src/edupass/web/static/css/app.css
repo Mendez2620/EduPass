@@ -502,3 +502,89 @@ tbody tr:last-child td {
     font-size: 0.82rem;
   }
 }
+.field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid #89988f;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.movement-form {
+  width: 100%;
+}
+
+.history-student,
+.movement-detail {
+  margin-bottom: 22px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.detail-grid div {
+  min-width: 0;
+  padding: 12px;
+  background: var(--canvas);
+}
+
+.detail-grid dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.detail-grid dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.history-table {
+  margin-bottom: 20px;
+}
+
+.pagination {
+  margin: 0 0 20px;
+  padding: 12px;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.pagination span {
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .history-student,
+  .movement-detail,
+  .validation-panel {
+    padding: 18px;
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pagination .button,
+  .movement-form .button {
+    width: 100%;
+  }
+}
