@@ -26,7 +26,6 @@
 8. No se midió porcentaje de cobertura.
 9. Las catorce evidencias visuales definitivas de Etapa B están capturadas y
    validadas en su inventario.
-10. El commit documental y el push siguen pendientes.
 
 ## Siguiente incremento
 

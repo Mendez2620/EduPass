@@ -45,8 +45,9 @@ Los commits técnicos son:
 - `0f15315d0a1edddeddb0f7c7ad41accb754ee958`: integración web e historial.
 
 Las catorce evidencias visuales definitivas de Etapa B fueron capturadas y
-validadas mediante una demostración temporal aislada. El commit documental y el
-push continúan pendientes. EduPass 1.0 no está completamente cerrado.
+validadas mediante una demostración temporal aislada. La documentación y las
+evidencias de Etapa B fueron publicadas en el commit `f15b7e2a`. EduPass 1.0 no
+está completamente cerrado.
 
 ## Documentos
 

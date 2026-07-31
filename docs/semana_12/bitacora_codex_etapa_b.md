@@ -73,8 +73,19 @@
   fallos.
 - **Resultado:** demostración temporal completada y catorce evidencias visuales
   capturadas y validadas; documentación técnica preparada para revisión.
-- **Commit:** pendiente.
+- **Commit:** `f15b7e2a35e4740ec0f5fff5f5a362541f91052b`.
 - **Observaciones:** el
   [inventario visual de Etapa B](evidencias_visuales_etapa_b/inventario_evidencias.md)
-  registra la evidencia funcional, responsive y técnica. No se hizo staging,
-  commit ni push en esta preparación.
+  registra la evidencia funcional, responsive y técnica.
+
+## 6. Cierre y publicación
+
+- **Objetivo:** publicar los incrementos técnicos, la documentación y las evidencias de Etapa B.
+- **Resultado:** los tres commits fueron publicados correctamente en `origin/master`.
+- **Commits publicados:**
+  - `e292e59766fbdffe7eeebf6f568eaf6e6f2add36`
+  - `0f15315d0a1edddeddb0f7c7ad41accb754ee958`
+  - `f15b7e2a35e4740ec0f5fff5f5a362541f91052b`
+- **Pruebas:** 484 pruebas en estado `OK`.
+- **Estado final:** Etapa B cerrada, documentada, probada y publicada.
+- **Pendientes posteriores:** CRUD web completo, rol e interfaz del alumno, cámara e intentos rechazados.
