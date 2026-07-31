@@ -125,3 +125,45 @@ rechazados. La cámara, los movimientos y el historial continúan pendientes, al
 igual que Etapa B. Etapa A está implementada para el flujo administrativo del
 prototipo, con la limitación de que la credencial sólo se presenta desde una
 sesión administrativa.
+
+## Pruebas técnicas de Etapa B
+
+La línea base cerrada de Etapa A fue de 317 pruebas. El núcleo transaccional de
+movimientos agregó 64 y elevó el subtotal a 381. La integración web e historial
+agregó o ajustó 103 pruebas:
+
+```text
+317 + 64 = 381
+381 + 103 = 484
+```
+
+La suite completa ejecutó 484 pruebas con cero errores y cero fallos.
+
+La cobertura técnica de Etapa B incluye:
+
+- consumo QR e inserción del movimiento en una única transacción;
+- commit único y rollback total;
+- concurrencia sobre un mismo QR;
+- entrada, salida y reglas de secuencia;
+- QR activo después de un rechazo de secuencia;
+- usuario escáner y hora obtenidos por el backend;
+- formulario Entrada/Salida y protección CSRF;
+- mensajes públicos y códigos HTTP controlados;
+- historial vacío y con registros;
+- orden descendente y paginación de 50;
+- detalle administrativo y prevención de IDOR;
+- separación de roles y respuestas 403;
+- estructura responsive;
+- privacidad de QR, identificadores y datos sensibles.
+
+La validación manual aislada realizada durante el incremento técnico confirmó
+entrada, rechazo de doble entrada, conservación del QR, salida, nueva entrada,
+orden del historial, detalle y accesos cruzados 403. Se usó una base temporal
+fuera del repositorio y no se persistieron intentos rechazados.
+
+Las catorce evidencias visuales definitivas de Etapa B fueron capturadas y
+validadas durante una demostración temporal aislada. El
+[inventario visual de Etapa B](evidencias_visuales_etapa_b/inventario_evidencias.md)
+documenta el formulario, las secuencias, los historiales, los detalles, los
+controles 403, las vistas responsive, la suite de 484 pruebas y el estado Git
+anterior al commit documental y al push.
