@@ -139,7 +139,7 @@ class TestWebAlumnos(unittest.TestCase):
         self.assertNotIn("privada.sqlite", body)
         self.assertNotIn("Traceback", body)
 
-    def test_list_does_not_offer_crud_actions_or_sensitive_fields(self):
+    def test_list_offers_crud_actions_without_sensitive_fields(self):
         self._login()
         with patch.object(
             alumnos_service,
@@ -148,13 +148,18 @@ class TestWebAlumnos(unittest.TestCase):
         ):
             body = self.client.get("/admin/alumnos").get_data(as_text=True)
 
-        for forbidden in (
-            "password_hash",
-            "SECRET_KEY",
-            "Crear alumno",
+        for expected in (
+            "Registrar alumno",
             "Editar",
             "Activar",
             "Desactivar",
+        ):
+            self.assertIn(expected, body)
+        for forbidden in (
+            "password_hash",
+            "SECRET_KEY",
+            "C:/privado/ana.png",
+            "Eliminar",
         ):
             self.assertNotIn(forbidden, body)
 

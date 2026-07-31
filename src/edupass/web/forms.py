@@ -27,6 +27,18 @@ class LogoutForm(FlaskForm):
     submit = SubmitField("Cerrar sesion")
 
 
+class AlumnoForm(FlaskForm):
+    nombre = StringField("Nombre", validators=[DataRequired()])
+    matricula = StringField("Matrícula", validators=[DataRequired()])
+    grado = StringField("Grado", validators=[DataRequired()])
+    grupo = StringField("Grupo", validators=[DataRequired()])
+    submit = SubmitField("Guardar alumno")
+
+
+class EstadoAlumnoForm(FlaskForm):
+    submit = SubmitField("Confirmar")
+
+
 class GenerarCredencialForm(FlaskForm):
     alumno_id = HiddenField("Alumno", validators=[DataRequired()])
     submit = SubmitField("Generar credencial")

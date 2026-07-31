@@ -3,7 +3,8 @@
 <section class="page-heading">
   <p class="eyebrow">Administracion</p>
   <h1>Listado de alumnos</h1>
-  <p>Consulta de solo lectura de los registros disponibles.</p>
+  <p>Registra, edita y administra el estado de los alumnos.</p>
+  <a class="button button-primary" href="{{ url_for('admin.alumno_nuevo') }}">Registrar alumno</a>
 </section>
 
 {% if error_message %}
@@ -19,6 +20,7 @@
           <th scope="col">Grado</th>
           <th scope="col">Grupo</th>
           <th scope="col">Estado</th>
+          <th scope="col">Acciones</th>
           <th scope="col">Credencial</th>
           <th scope="col">Historial</th>
         </tr>
@@ -32,6 +34,22 @@
             <td>{{ alumno.grado }}</td>
             <td>{{ alumno.grupo }}</td>
             <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            <td>
+              <div class="student-row-actions">
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumno_editar', alumno_id=alumno.alumno_id) }}">Editar</a>
+                {% if alumno.estado == "activo" %}
+                  <form method="post" action="{{ url_for('admin.alumno_desactivar', alumno_id=alumno.alumno_id) }}" onsubmit="return window.confirm('¿Desactivar este alumno?');">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-danger" type="submit">Desactivar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('admin.alumno_activar', alumno_id=alumno.alumno_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-state" type="submit">Activar</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
             <td class="credential-action">
               <form method="post" action="{{ url_for('admin.generar_credencial') }}">
                 {% if credencial_form.csrf_token is defined %}

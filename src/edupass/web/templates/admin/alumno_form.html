@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administracion de alumnos</p>
+  <h1>{{ "Registrar alumno" if operation == "crear" else "Editar alumno" }}</h1>
+  <p>Captura los datos academicos obligatorios del alumno.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+<section class="student-form-panel" aria-labelledby="student-form-title">
+  <h2 id="student-form-title">Datos del alumno</h2>
+  <form class="student-form" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="student-form-grid">
+      <div class="field student-form-wide">
+        {{ form.nombre.label }}
+        {{ form.nombre(autocomplete="name") }}
+        {% for error in form.nombre.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div class="field student-form-wide">
+        {{ form.matricula.label }}
+        {{ form.matricula(autocomplete="off", spellcheck="false") }}
+        {% for error in form.matricula.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div class="field">
+        {{ form.grado.label }}
+        {{ form.grado(autocomplete="off") }}
+        {% for error in form.grado.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div class="field">
+        {{ form.grupo.label }}
+        {{ form.grupo(autocomplete="off") }}
+        {% for error in form.grupo.errors %}
+          <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="student-form-actions">
+      {{ form.submit(class_="button button-primary") }}
+      <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumnos_list') }}">Regresar al listado</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -5,21 +5,36 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from flask import Blueprint, current_app, make_response, render_template, request
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from edupass.modules.alumnos import alumnos_service
 from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
 from edupass.modules.historial import historial_service
-from edupass.shared.constants import ROL_ADMINISTRADOR
+from edupass.shared.constants import ESTADO_ALUMNO_ACTIVO, ROL_ADMINISTRADOR
 from edupass.shared.errors import (
     AlumnoInactivoError,
     AlumnoNoEncontradoError,
+    MatriculaDuplicadaError,
     MovimientoNoEncontradoError,
     RepositoryError,
     ValidationError,
 )
-from edupass.web.forms import GenerarCredencialForm, RenovarCredencialForm
+from edupass.web.forms import (
+    AlumnoForm,
+    EstadoAlumnoForm,
+    GenerarCredencialForm,
+    RenovarCredencialForm,
+)
 from edupass.web.security import role_required
 
 
@@ -89,6 +104,51 @@ def _render_movimiento_detalle(movimiento, *, status: int = 200):
     )
     return _with_security_headers(response)
 
+
+def _render_alumno_form(
+    form: AlumnoForm,
+    operation: str,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    title = "Registrar alumno" if operation == "crear" else "Editar alumno"
+    return (
+        render_template(
+            "admin/alumno_form.html",
+            form=form,
+            operation=operation,
+            error_message=error_message,
+            title=title,
+        ),
+        status,
+    )
+
+
+def _render_alumno_operation_error(message: str, status: int):
+    return (
+        render_template(
+            "admin/alumnos_list.html",
+            alumnos=[],
+            error_message=message,
+            credencial_form=GenerarCredencialForm(),
+            estado_form=EstadoAlumnoForm(),
+            title="Alumnos",
+        ),
+        status,
+    )
+
+
+def _technical_alumno_error(operation: str):
+    current_app.logger.warning(
+        "No fue posible completar la operacion administrativa "
+        "de alumnos: %s.",
+        operation,
+    )
+    return _render_alumno_operation_error(
+        "No fue posible completar la operación en este momento.",
+        500,
+    )
 
 def _alumno_id_from_form(form) -> int:
     try:
@@ -199,9 +259,179 @@ def alumnos_list():
         alumnos=alumnos,
         error_message=error_message,
         credencial_form=GenerarCredencialForm(),
+        estado_form=EstadoAlumnoForm(),
         title="Alumnos",
     )
 
+
+@admin_blueprint.route("/alumnos/nuevo", methods=["GET", "POST"])
+@role_required(ROL_ADMINISTRADOR)
+def alumno_nuevo():
+    form = AlumnoForm()
+    if not form.is_submitted():
+        return _render_alumno_form(form, "crear")
+    if not form.validate_on_submit():
+        return _render_alumno_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del alumno.",
+            status=400,
+        )
+
+    try:
+        alumnos_service.registrar_alumno(
+            nombre=form.nombre.data,
+            matricula=form.matricula.data,
+            grado=form.grado.data,
+            grupo=form.grupo.data,
+            fotografia=None,
+            estado=ESTADO_ALUMNO_ACTIVO,
+            database_path=current_app.config["DATABASE_PATH"],
+        )
+    except MatriculaDuplicadaError:
+        return _render_alumno_form(
+            form,
+            "crear",
+            error_message="La matrícula ya está registrada.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_alumno_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del alumno.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_alumno_error("registrar")
+
+    flash("Alumno registrado correctamente.", "success")
+    return redirect(url_for("admin.alumnos_list"))
+
+
+@admin_blueprint.route(
+    "/alumnos/<int:alumno_id>/editar",
+    methods=["GET", "POST"],
+)
+@role_required(ROL_ADMINISTRADOR)
+def alumno_editar(alumno_id: int):
+    try:
+        alumno = alumnos_service.consultar_alumno_por_id(
+            alumno_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except AlumnoNoEncontradoError:
+        return _render_alumno_operation_error(
+            "No se encontró el alumno solicitado.",
+            404,
+        )
+    except ValidationError:
+        return _render_alumno_operation_error(
+            "Revisa los datos obligatorios del alumno.",
+            400,
+        )
+    except RepositoryError:
+        return _technical_alumno_error("consultar para editar")
+
+    form = AlumnoForm()
+    if not form.is_submitted():
+        form.nombre.data = alumno["nombre"]
+        form.matricula.data = alumno["matricula"]
+        form.grado.data = alumno["grado"]
+        form.grupo.data = alumno["grupo"]
+        return _render_alumno_form(form, "editar")
+    if not form.validate_on_submit():
+        return _render_alumno_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del alumno.",
+            status=400,
+        )
+
+    try:
+        alumnos_service.editar_alumno(
+            alumno_id=alumno_id,
+            nombre=form.nombre.data,
+            matricula=form.matricula.data,
+            grado=form.grado.data,
+            grupo=form.grupo.data,
+            fotografia=alumno["fotografia"],
+            database_path=current_app.config["DATABASE_PATH"],
+        )
+    except AlumnoNoEncontradoError:
+        return _render_alumno_operation_error(
+            "No se encontró el alumno solicitado.",
+            404,
+        )
+    except MatriculaDuplicadaError:
+        return _render_alumno_form(
+            form,
+            "editar",
+            error_message="La matrícula ya está registrada.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_alumno_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del alumno.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_alumno_error("editar")
+
+    flash("Alumno actualizado correctamente.", "success")
+    return redirect(url_for("admin.alumnos_list"))
+
+
+def _cambiar_estado_alumno(
+    alumno_id: int,
+    operation,
+    success_message: str,
+):
+    form = EstadoAlumnoForm()
+    if not form.validate_on_submit():
+        return _render_alumno_operation_error(
+            "Revisa los datos obligatorios del alumno.",
+            400,
+        )
+    try:
+        operation(alumno_id, current_app.config["DATABASE_PATH"])
+    except AlumnoNoEncontradoError:
+        return _render_alumno_operation_error(
+            "No se encontró el alumno solicitado.",
+            404,
+        )
+    except ValidationError:
+        return _render_alumno_operation_error(
+            "Revisa los datos obligatorios del alumno.",
+            400,
+        )
+    except RepositoryError:
+        return _technical_alumno_error("cambiar estado")
+
+    flash(success_message, "success")
+    return redirect(url_for("admin.alumnos_list"))
+
+
+@admin_blueprint.post("/alumnos/<int:alumno_id>/activar")
+@role_required(ROL_ADMINISTRADOR)
+def alumno_activar(alumno_id: int):
+    return _cambiar_estado_alumno(
+        alumno_id,
+        alumnos_service.activar_alumno,
+        "Alumno activado correctamente.",
+    )
+
+
+@admin_blueprint.post("/alumnos/<int:alumno_id>/desactivar")
+@role_required(ROL_ADMINISTRADOR)
+def alumno_desactivar(alumno_id: int):
+    return _cambiar_estado_alumno(
+        alumno_id,
+        alumnos_service.desactivar_alumno,
+        "Alumno desactivado correctamente.",
+    )
 
 @admin_blueprint.get("/historial")
 @role_required(ROL_ADMINISTRADOR)

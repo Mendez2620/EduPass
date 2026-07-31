@@ -588,3 +588,64 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+.student-form-panel {
+  max-width: 760px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.student-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.student-form-wide {
+  grid-column: 1 / -1;
+}
+
+.student-form-actions,
+.student-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.student-row-actions form {
+  margin: 0;
+}
+
+.button-state {
+  color: #ffffff;
+  background: var(--brand);
+}
+
+.button-danger {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+@media (max-width: 390px) {
+  .student-form-panel {
+    padding: 18px;
+  }
+
+  .student-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-form-wide {
+    grid-column: auto;
+  }
+
+  .student-form-actions,
+  .student-form-actions .button,
+  .student-row-actions,
+  .student-row-actions .button,
+  .student-row-actions form {
+    width: 100%;
+  }
+}
