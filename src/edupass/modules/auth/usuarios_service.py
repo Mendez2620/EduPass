@@ -101,6 +101,66 @@ def _obtener_administrador(
     return usuario
 
 
+def _obtener_escaner(
+    usuario_id: int,
+    database_path: Path | None,
+) -> dict[str, Any]:
+    usuario = usuario_repository.obtener_por_id(usuario_id, database_path)
+    if usuario is None or usuario.get("rol_nombre") != ROL_ESCANER:
+        raise UsuarioNoEncontradoError(
+            "No se encontro el escaner solicitado."
+        )
+    return usuario
+
+
+def _editar_usuario_por_rol(
+    usuario_id: object,
+    nombre: object,
+    correo: object,
+    rol_nombre: str,
+    obtener_objetivo,
+    database_path: Path | None,
+) -> dict[str, Any]:
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    obtener_objetivo(usuario_id_validado, database_path)
+    nombre_normalizado = _normalizar_texto_obligatorio(nombre, "nombre")
+    correo_normalizado = _normalizar_correo(correo)
+    existente = usuario_repository.obtener_por_correo(
+        correo_normalizado, database_path
+    )
+    if existente is not None and existente["usuario_id"] != usuario_id_validado:
+        raise DuplicateUserError("El correo ya esta registrado.")
+    if not usuario_repository.actualizar_datos(
+        usuario_id_validado,
+        nombre_normalizado,
+        correo_normalizado,
+        database_path,
+    ):
+        raise UsuarioNoEncontradoError("No se encontro el usuario solicitado.")
+    return _usuario_seguro(
+        obtener_objetivo(usuario_id_validado, database_path)
+    )
+
+
+def _restablecer_password_por_rol(
+    usuario_id: object,
+    password: object,
+    obtener_objetivo,
+    database_path: Path | None,
+) -> dict[str, Any]:
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    obtener_objetivo(usuario_id_validado, database_path)
+    password_validado = _validar_password_creacion(password)
+    if not usuario_repository.actualizar_password(
+        usuario_id_validado,
+        generate_password_hash(password_validado),
+        database_path,
+    ):
+        raise UsuarioNoEncontradoError("No se encontro el usuario solicitado.")
+    return _usuario_seguro(
+        obtener_objetivo(usuario_id_validado, database_path)
+    )
+
 def autenticar_usuario(
     correo: object,
     password: object,
@@ -359,18 +419,117 @@ def desactivar_administrador(
     )
 
 
+def listar_escaneres(
+    database_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Lista exclusivamente cuentas de escaneo seguras."""
+    return [
+        _usuario_seguro(usuario)
+        for usuario in usuario_repository.listar_por_rol(
+            ROL_ESCANER, database_path
+        )
+    ]
+
+
+def consultar_escaner(
+    usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Consulta una cuenta de escaneo por identificador."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    return _usuario_seguro(
+        _obtener_escaner(usuario_id_validado, database_path)
+    )
+
+
+def crear_escaner(
+    nombre: object,
+    correo: object,
+    password: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Crea una cuenta con rol escaner fijado en servidor."""
+    return crear_usuario(nombre, correo, password, ROL_ESCANER, database_path)
+
+
+def editar_escaner(
+    usuario_id: object,
+    nombre: object,
+    correo: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Edita solamente nombre y correo de una cuenta de escaneo."""
+    return _editar_usuario_por_rol(
+        usuario_id,
+        nombre,
+        correo,
+        ROL_ESCANER,
+        _obtener_escaner,
+        database_path,
+    )
+
+
+def restablecer_password_escaner(
+    usuario_id: object,
+    password: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Reemplaza solamente el hash de una cuenta de escaneo."""
+    return _restablecer_password_por_rol(
+        usuario_id, password, _obtener_escaner, database_path
+    )
+
+
+def activar_escaner(
+    usuario_id: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Activa un escaner mediante un actor administrador activo."""
+    return _usuario_seguro(
+        usuario_repository.cambiar_estado_escaner_protegido(
+            _validar_usuario_id(usuario_id),
+            ESTADO_ACTIVO,
+            _validar_usuario_id(actor_usuario_id),
+            database_path,
+        )
+    )
+
+
+def desactivar_escaner(
+    usuario_id: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Desactiva un escaner sin reglas del ultimo administrador."""
+    return _usuario_seguro(
+        usuario_repository.cambiar_estado_escaner_protegido(
+            _validar_usuario_id(usuario_id),
+            ESTADO_INACTIVO,
+            _validar_usuario_id(actor_usuario_id),
+            database_path,
+        )
+    )
+
 __all__ = [
     "ROL_ADMINISTRADOR",
     "ROL_ESCANER",
     "activar_administrador",
+    "activar_escaner",
     "autenticar_usuario",
     "consultar_administrador",
+    "consultar_escaner",
     "crear_administrador",
+    "crear_escaner",
     "crear_usuario_demo",
     "desactivar_administrador",
+    "desactivar_escaner",
     "editar_administrador",
+    "editar_escaner",
     "listar_administradores",
+    "listar_escaneres",
     "obtener_usuario_sesion",
     "restablecer_password_administrador",
+    "restablecer_password_escaner",
     "validar_rol",
 ]

@@ -63,6 +63,7 @@ class TestWebRoles(unittest.TestCase):
             "/admin",
             "/admin/alumnos",
             "/admin/administradores",
+            "/admin/escaneres",
             "/scanner",
         ):
             with self.subTest(route=route):
@@ -89,6 +90,7 @@ class TestWebRoles(unittest.TestCase):
             "/admin",
             "/admin/alumnos",
             "/admin/administradores",
+            "/admin/escaneres",
         ):
             with self.subTest(route=route):
                 response = self.client.get(route)
@@ -108,6 +110,8 @@ class TestWebRoles(unittest.TestCase):
         self.assertIn("Registrar entrada o salida", body)
         self.assertNotIn("getUserMedia", body)
         self.assertIn("Registra entradas y salidas", body)
+        self.assertNotIn("/admin/escaneres", body)
+        self.assertNotIn("Escáneres", body)
 
     def test_admin_dashboard_reports_qr_credential_as_available(self):
         self._login("admin@edupass.test")
@@ -139,6 +143,8 @@ class TestWebRoles(unittest.TestCase):
         self.assertIn("administrador", body)
         self.assertIn("Administradores", body)
         self.assertIn("/admin/administradores", body)
+        self.assertIn("Escáneres", body)
+        self.assertIn("/admin/escaneres", body)
         self.assertNotIn("rol_id", body)
 
 

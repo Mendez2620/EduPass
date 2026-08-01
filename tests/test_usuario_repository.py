@@ -542,5 +542,196 @@ class TestUsuarioRepositoryAdministradores(unittest.TestCase):
             usuario_repository.listar_por_rol("administrador", self.database_path)
 
         self.assertTrue(tracking.closed)
+class TestUsuarioRepositoryEscaneres(unittest.TestCase):
+    PASSWORD = "ClaveEscaner123"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.database_path = Path(self.temp.name) / "escaneres_repo.sqlite"
+        database_manager.initialize_database(self.database_path, SCHEMA_PATH)
+        self.admin_role = rol_repository.crear_si_no_existe(
+            "administrador", database_path=self.database_path
+        )
+        self.scanner_role = rol_repository.crear_si_no_existe(
+            "escaner", database_path=self.database_path
+        )
+        self.password_hash = generate_password_hash(self.PASSWORD)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _user(self, email, role="escaner", state="activo"):
+        role_id = (
+            self.scanner_role["rol_id"]
+            if role == "escaner"
+            else self.admin_role["rol_id"]
+        )
+        return usuario_repository.crear(
+            email.split("@")[0], email, self.password_hash,
+            state, role_id, self.database_path,
+        )
+
+    def test_listar_solo_escaneres_sin_administradores_ni_hash(self):
+        scanner = self._user("scanner@edupass.test")
+        self._user("admin@edupass.test", role="administrador")
+        rows = usuario_repository.listar_por_rol("escaner", self.database_path)
+        self.assertEqual([row["usuario_id"] for row in rows], [scanner])
+        self.assertTrue(all(row["rol_nombre"] == "escaner" for row in rows))
+        self.assertTrue(all("password_hash" not in row for row in rows))
+
+    def test_administrador_activo_puede_desactivar_y_activar_escaner(self):
+        actor = self._user("admin@edupass.test", role="administrador")
+        target = self._user("scanner@edupass.test")
+        inactive = usuario_repository.cambiar_estado_escaner_protegido(
+            target, "inactivo", actor, self.database_path
+        )
+        active = usuario_repository.cambiar_estado_escaner_protegido(
+            target, "activo", actor, self.database_path
+        )
+        self.assertEqual(inactive["estado"], "inactivo")
+        self.assertEqual(active["estado"], "activo")
+        self.assertNotIn("password_hash", active)
+
+    def test_actor_inactivo_y_actor_escaner_son_rechazados(self):
+        inactive_admin = self._user(
+            "inactive@edupass.test", role="administrador", state="inactivo"
+        )
+        scanner_actor = self._user("actor@edupass.test")
+        target = self._user("target@edupass.test")
+        for actor in (inactive_admin, scanner_actor):
+            with self.subTest(actor=actor):
+                with self.assertRaises(AuthorizationError):
+                    usuario_repository.cambiar_estado_escaner_protegido(
+                        target, "inactivo", actor, self.database_path
+                    )
+
+    def test_objetivo_administrador_e_inexistente_son_rechazados(self):
+        actor = self._user("actor@edupass.test", role="administrador")
+        admin_target = self._user("target@edupass.test", role="administrador")
+        for target in (admin_target, 99999):
+            with self.subTest(target=target):
+                with self.assertRaises(UsuarioNoEncontradoError):
+                    usuario_repository.cambiar_estado_escaner_protegido(
+                        target, "inactivo", actor, self.database_path
+                    )
+
+    def test_rollback_ante_fallo_conserva_estado(self):
+        actor = self._user("actor@edupass.test", role="administrador")
+        target = self._user("scanner@edupass.test")
+        original_loader = usuario_repository._load_query
+
+        def failing_loader(file_name):
+            if file_name == usuario_repository._UPDATE_STATE_FILE:
+                return "UPDATE tabla_inexistente SET estado = ? WHERE id = ?;"
+            return original_loader(file_name)
+
+        with patch.object(usuario_repository, "_load_query", side_effect=failing_loader):
+            with self.assertRaises(RepositoryError):
+                usuario_repository.cambiar_estado_escaner_protegido(
+                    target, "inactivo", actor, self.database_path
+                )
+        self.assertEqual(usuario_repository.obtener_por_id(
+            target, self.database_path)["estado"], "activo")
+
+    def test_desactivar_conserva_movimiento_asociado(self):
+        actor = self._user("actor@edupass.test", role="administrador")
+        target = self._user("scanner@edupass.test")
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            alumno = connection.execute(
+                "INSERT INTO alumnos (nombre, matricula, grado, grupo, estado) "
+                "VALUES (?, ?, ?, ?, ?);",
+                ("Alumno", "MAT-S13-E3", "1", "A", "activo"),
+            ).lastrowid
+            connection.execute(
+                "INSERT INTO movimientos "
+                "(alumno_id, tipo_movimiento, fecha_hora, usuario_id) "
+                "VALUES (?, ?, ?, ?);",
+                (alumno, "entrada", "2026-07-31T18:00:00", target),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        usuario_repository.cambiar_estado_escaner_protegido(
+            target, "inactivo", actor, self.database_path
+        )
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            total = connection.execute(
+                "SELECT COUNT(*) FROM movimientos WHERE usuario_id = ?;", (target,)
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(total, 1)
+
+    def test_operacion_declara_begin_immediate_y_no_regla_ultimo_admin(self):
+        source = Path(usuario_repository.__file__).read_text(encoding="utf-8")
+        self.assertIn('connection.execute("BEGIN IMMEDIATE;")', source)
+        actor = self._user("admin@edupass.test", role="administrador")
+        target = self._user("scanner@edupass.test")
+        with patch.object(
+            usuario_repository,
+            "_load_query",
+            wraps=usuario_repository._load_query,
+        ) as loader:
+            usuario_repository.cambiar_estado_escaner_protegido(
+                target, "inactivo", actor, self.database_path
+            )
+        loaded = [call.args[0] for call in loader.call_args_list]
+        self.assertNotIn(usuario_repository._COUNT_ACTIVE_BY_ROLE_FILE, loaded)
+
+    def test_cambio_de_administradores_conserva_compatibilidad(self):
+        actor = self._user("actor@edupass.test", role="administrador")
+        target = self._user("target@edupass.test", role="administrador")
+        result = usuario_repository.cambiar_estado_administrador_protegido(
+            target, "inactivo", actor, self.database_path
+        )
+        self.assertEqual(result["estado"], "inactivo")
+
+    def test_conexion_y_cursores_se_cierran(self):
+        actor = self._user("admin@edupass.test", role="administrador")
+        target = self._user("scanner@edupass.test")
+        real = database_manager.get_connection(self.database_path)
+
+        class TrackingCursor:
+            def __init__(self, cursor):
+                self.cursor = cursor
+                self.closed = False
+            def __getattr__(self, name):
+                return getattr(self.cursor, name)
+            def close(self):
+                self.closed = True
+                self.cursor.close()
+
+        class TrackingConnection:
+            def __init__(self, connection):
+                object.__setattr__(self, "connection", connection)
+                object.__setattr__(self, "closed", False)
+                object.__setattr__(self, "cursors", [])
+            def __getattr__(self, name):
+                return getattr(self.connection, name)
+            def __setattr__(self, name, value):
+                if name in {"connection", "closed", "cursors"}:
+                    object.__setattr__(self, name, value)
+                else:
+                    setattr(self.connection, name, value)
+            def execute(self, *args, **kwargs):
+                cursor = TrackingCursor(self.connection.execute(*args, **kwargs))
+                self.cursors.append(cursor)
+                return cursor
+            def close(self):
+                self.closed = True
+                self.connection.close()
+
+        tracking = TrackingConnection(real)
+        with patch.object(usuario_repository.database_manager, "get_connection",
+                          return_value=tracking):
+            usuario_repository.cambiar_estado_escaner_protegido(
+                target, "inactivo", actor, self.database_path
+            )
+        self.assertTrue(tracking.closed)
+        self.assertTrue(tracking.cursors)
+        self.assertTrue(all(cursor.closed for cursor in tracking.cursors))
+
 if __name__ == "__main__":
     unittest.main()

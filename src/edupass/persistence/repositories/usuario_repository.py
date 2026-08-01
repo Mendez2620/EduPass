@@ -11,6 +11,7 @@ from edupass.shared.constants import (
     ESTADO_ACTIVO,
     ESTADO_INACTIVO,
     ROL_ADMINISTRADOR,
+    ROL_ESCANER,
 )
 from edupass.shared.errors import (
     AuthorizationError,
@@ -350,19 +351,31 @@ def contar_activos_por_rol(
         ) from exc
 
 
-def cambiar_estado_administrador_protegido(
+def _cambiar_estado_usuario_protegido(
     usuario_id: object,
     nuevo_estado: object,
     actor_usuario_id: object,
+    rol_objetivo: object,
+    proteger_ultimo_activo: bool,
     database_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Cambia el estado protegiendo actor y ultimo administrador activo."""
+    """Cambia el estado validando actor y rol objetivo en una transacción."""
     objetivo_id = _validar_usuario_id(usuario_id)
     actor_id = _validar_usuario_id(actor_usuario_id)
     estado = _validar_estado(nuevo_estado)
+    rol = _normalizar_rol(rol_objetivo)
+    if rol not in {ROL_ADMINISTRADOR, ROL_ESCANER}:
+        raise RepositoryError("El rol objetivo no es valido.")
+    if not isinstance(proteger_ultimo_activo, bool):
+        raise RepositoryError("La proteccion de usuarios activos no es valida.")
+
     select_query = _load_query(_SELECT_BY_ID_FILE)
-    count_query = _load_query(_COUNT_ACTIVE_BY_ROLE_FILE)
     update_query = _load_query(_UPDATE_STATE_FILE)
+    count_query = (
+        _load_query(_COUNT_ACTIVE_BY_ROLE_FILE)
+        if proteger_ultimo_activo
+        else None
+    )
     connection = None
     cursors: list[sqlite3.Cursor] = []
 
@@ -386,26 +399,28 @@ def cambiar_estado_administrador_protegido(
         objetivo_cursor = connection.execute(select_query, (objetivo_id,))
         cursors.append(objetivo_cursor)
         objetivo = _row_to_dict(objetivo_cursor.fetchone())
-        if (
-            objetivo is None
-            or objetivo.get("rol_nombre") != ROL_ADMINISTRADOR
-        ):
+        if objetivo is None or objetivo.get("rol_nombre") != rol:
             raise UsuarioNoEncontradoError(
-                "No se encontro el administrador solicitado."
+                "No se encontro el usuario solicitado."
             )
 
-        if estado == ESTADO_INACTIVO and objetivo_id == actor_id:
+        if (
+            proteger_ultimo_activo
+            and estado == ESTADO_INACTIVO
+            and objetivo_id == actor_id
+        ):
             raise AutoBloqueoAdministradorError(
                 "No puedes desactivar tu propia cuenta."
             )
 
         if (
-            estado == ESTADO_INACTIVO
+            proteger_ultimo_activo
+            and estado == ESTADO_INACTIVO
             and objetivo.get("estado") == ESTADO_ACTIVO
         ):
             count_cursor = connection.execute(
                 count_query,
-                (ROL_ADMINISTRADOR, ESTADO_ACTIVO),
+                (rol, ESTADO_ACTIVO),
             )
             cursors.append(count_cursor)
             count_row = _row_to_dict(count_cursor.fetchone())
@@ -421,7 +436,7 @@ def cambiar_estado_administrador_protegido(
         cursors.append(update_cursor)
         if update_cursor.rowcount != 1:
             raise UsuarioNoEncontradoError(
-                "No se encontro el administrador solicitado."
+                "No se encontro el usuario solicitado."
             )
 
         result_cursor = connection.execute(select_query, (objetivo_id,))
@@ -429,7 +444,7 @@ def cambiar_estado_administrador_protegido(
         result = _row_to_dict(result_cursor.fetchone())
         if result is None:
             raise RepositoryError(
-                "No se pudo recuperar el administrador actualizado."
+                "No se pudo recuperar el usuario actualizado."
             )
 
         connection.commit()
@@ -440,10 +455,44 @@ def cambiar_estado_administrador_protegido(
     except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
         _rollback(connection)
         raise RepositoryError(
-            "No se pudo cambiar el estado del administrador."
+            "No se pudo cambiar el estado del usuario."
         ) from exc
     finally:
         for cursor in cursors:
             cursor.close()
         if connection is not None:
             connection.close()
+
+
+def cambiar_estado_administrador_protegido(
+    usuario_id: object,
+    nuevo_estado: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Conserva las protecciones aprobadas para administradores."""
+    return _cambiar_estado_usuario_protegido(
+        usuario_id,
+        nuevo_estado,
+        actor_usuario_id,
+        ROL_ADMINISTRADOR,
+        True,
+        database_path,
+    )
+
+
+def cambiar_estado_escaner_protegido(
+    usuario_id: object,
+    nuevo_estado: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Cambia el estado de un escáner sin reglas del último administrador."""
+    return _cambiar_estado_usuario_protegido(
+        usuario_id,
+        nuevo_estado,
+        actor_usuario_id,
+        ROL_ESCANER,
+        False,
+        database_path,
+    )

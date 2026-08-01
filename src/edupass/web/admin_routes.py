@@ -43,6 +43,9 @@ from edupass.web.forms import (
     AlumnoForm,
     EstadoAlumnoForm,
     EstadoUsuarioForm,
+    EscanerCrearForm,
+    EscanerEditarForm,
+    EscanerPasswordForm,
     GenerarCredencialForm,
     RenovarCredencialForm,
 )
@@ -585,6 +588,304 @@ def administrador_desactivar(usuario_id: int):
         "Administrador desactivado correctamente.",
     )
 
+
+def _safe_scanners(rows):
+    return [
+        {
+            "usuario_id": row.get("usuario_id"),
+            "nombre": row.get("nombre"),
+            "correo": row.get("correo"),
+            "estado": row.get("estado"),
+            "rol_nombre": row.get("rol_nombre"),
+        }
+        for row in rows
+    ]
+
+
+def _render_escaner_form(
+    form,
+    operation: str,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    title = "Registrar escáner" if operation == "crear" else "Editar escáner"
+    return (
+        render_template(
+            "admin/escaner_form.html",
+            form=form,
+            operation=operation,
+            error_message=error_message,
+            title=title,
+        ),
+        status,
+    )
+
+
+def _render_escaner_password(
+    form,
+    escaner,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    return (
+        render_template(
+            "admin/escaner_password.html",
+            form=form,
+            escaner=escaner,
+            error_message=error_message,
+            title="Restablecer contraseña del escáner",
+        ),
+        status,
+    )
+
+
+def _render_escaner_operation_error(message: str, status: int):
+    return (
+        render_template(
+            "admin/escaneres_list.html",
+            escaneres=[],
+            error_message=message,
+            estado_form=EstadoUsuarioForm(),
+            title="Personal de escaneo",
+        ),
+        status,
+    )
+
+
+def _technical_escaner_error(operation: str):
+    current_app.logger.warning(
+        "No fue posible completar la operacion administrativa de escaneres: %s.",
+        operation,
+    )
+    return _render_escaner_operation_error(
+        "No fue posible completar la operación en este momento.", 500
+    )
+
+
+@admin_blueprint.get("/escaneres")
+@role_required(ROL_ADMINISTRADOR)
+def escaneres_list():
+    try:
+        escaneres = _safe_scanners(
+            usuarios_service.listar_escaneres(
+                current_app.config["DATABASE_PATH"]
+            )
+        )
+    except RepositoryError:
+        return _technical_escaner_error("listar")
+    return render_template(
+        "admin/escaneres_list.html",
+        escaneres=escaneres,
+        error_message=None,
+        estado_form=EstadoUsuarioForm(),
+        title="Personal de escaneo",
+    )
+
+
+@admin_blueprint.route("/escaneres/nuevo", methods=["GET", "POST"])
+@role_required(ROL_ADMINISTRADOR)
+def escaner_nuevo():
+    form = EscanerCrearForm()
+    if not form.is_submitted():
+        return _render_escaner_form(form, "crear")
+    if not form.validate_on_submit():
+        return _render_escaner_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    try:
+        usuarios_service.crear_escaner(
+            form.nombre.data,
+            form.correo.data,
+            form.password.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except DuplicateUserError:
+        return _render_escaner_form(
+            form,
+            "crear",
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_escaner_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_escaner_error("registrar")
+    flash("Escáner registrado correctamente.", "success")
+    return redirect(url_for("admin.escaneres_list"))
+
+
+@admin_blueprint.route(
+    "/escaneres/<int:usuario_id>/editar", methods=["GET", "POST"]
+)
+@role_required(ROL_ADMINISTRADOR)
+def escaner_editar(usuario_id: int):
+    try:
+        escaner = usuarios_service.consultar_escaner(
+            usuario_id, current_app.config["DATABASE_PATH"]
+        )
+    except UsuarioNoEncontradoError:
+        return _render_escaner_operation_error(
+            "No se encontró el escáner solicitado.", 404
+        )
+    except ValidationError:
+        return _render_escaner_operation_error(
+            "Revisa los datos obligatorios del escáner.", 400
+        )
+    except RepositoryError:
+        return _technical_escaner_error("consultar para editar")
+
+    form = EscanerEditarForm()
+    if not form.is_submitted():
+        form.nombre.data = escaner["nombre"]
+        form.correo.data = escaner["correo"]
+        return _render_escaner_form(form, "editar")
+    if not form.validate_on_submit():
+        return _render_escaner_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    try:
+        usuarios_service.editar_escaner(
+            usuario_id,
+            form.nombre.data,
+            form.correo.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_escaner_operation_error(
+            "No se encontró el escáner solicitado.", 404
+        )
+    except DuplicateUserError:
+        return _render_escaner_form(
+            form,
+            "editar",
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_escaner_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_escaner_error("editar")
+    flash("Escáner actualizado correctamente.", "success")
+    return redirect(url_for("admin.escaneres_list"))
+
+
+@admin_blueprint.route(
+    "/escaneres/<int:usuario_id>/password", methods=["GET", "POST"]
+)
+@role_required(ROL_ADMINISTRADOR)
+def escaner_password(usuario_id: int):
+    try:
+        escaner = usuarios_service.consultar_escaner(
+            usuario_id, current_app.config["DATABASE_PATH"]
+        )
+    except UsuarioNoEncontradoError:
+        return _render_escaner_operation_error(
+            "No se encontró el escáner solicitado.", 404
+        )
+    except ValidationError:
+        return _render_escaner_operation_error(
+            "Revisa los datos obligatorios del escáner.", 400
+        )
+    except RepositoryError:
+        return _technical_escaner_error("consultar contraseña")
+
+    form = EscanerPasswordForm()
+    if not form.is_submitted():
+        return _render_escaner_password(form, escaner)
+    if not form.validate_on_submit():
+        return _render_escaner_password(
+            form,
+            escaner,
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    try:
+        usuarios_service.restablecer_password_escaner(
+            usuario_id,
+            form.password.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_escaner_operation_error(
+            "No se encontró el escáner solicitado.", 404
+        )
+    except ValidationError:
+        return _render_escaner_password(
+            form,
+            escaner,
+            error_message="Revisa los datos obligatorios del escáner.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_escaner_error("restablecer contraseña")
+    flash("Contraseña del escáner actualizada correctamente.", "success")
+    return redirect(url_for("admin.escaneres_list"))
+
+
+def _cambiar_estado_escaner(usuario_id: int, operation, success_message: str):
+    form = EstadoUsuarioForm()
+    if not form.validate_on_submit():
+        return _render_escaner_operation_error(
+            "Revisa los datos obligatorios del escáner.", 400
+        )
+    try:
+        operation(
+            usuario_id,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_escaner_operation_error(
+            "No se encontró el escáner solicitado.", 404
+        )
+    except ValidationError:
+        return _render_escaner_operation_error(
+            "Revisa los datos obligatorios del escáner.", 400
+        )
+    except AuthorizationError:
+        return _render_escaner_operation_error("Acceso no autorizado.", 403)
+    except RepositoryError:
+        return _technical_escaner_error("cambiar estado")
+    flash(success_message, "success")
+    return redirect(url_for("admin.escaneres_list"))
+
+
+@admin_blueprint.post("/escaneres/<int:usuario_id>/activar")
+@role_required(ROL_ADMINISTRADOR)
+def escaner_activar(usuario_id: int):
+    return _cambiar_estado_escaner(
+        usuario_id,
+        usuarios_service.activar_escaner,
+        "Escáner activado correctamente.",
+    )
+
+
+@admin_blueprint.post("/escaneres/<int:usuario_id>/desactivar")
+@role_required(ROL_ADMINISTRADOR)
+def escaner_desactivar(usuario_id: int):
+    return _cambiar_estado_escaner(
+        usuario_id,
+        usuarios_service.desactivar_escaner,
+        "Escáner desactivado correctamente.",
+    )
 
 @admin_blueprint.get("/alumnos")
 @role_required(ROL_ADMINISTRADOR)

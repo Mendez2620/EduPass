@@ -83,6 +83,17 @@ class AdministradorPasswordForm(FlaskForm):
     submit = SubmitField("Actualizar contraseña")
 
 
+class EscanerCrearForm(AdministradorCrearForm):
+    submit = SubmitField("Guardar escáner")
+
+
+class EscanerEditarForm(AdministradorEditarForm):
+    submit = SubmitField("Guardar escáner")
+
+
+class EscanerPasswordForm(AdministradorPasswordForm):
+    submit = SubmitField("Actualizar contraseña")
+
 class EstadoUsuarioForm(FlaskForm):
     submit = SubmitField("Confirmar")
 

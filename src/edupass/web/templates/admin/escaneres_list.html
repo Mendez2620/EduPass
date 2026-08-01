@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administración</p>
+  <h1>Personal de escaneo</h1>
+  <p>Gestiona las cuentas autorizadas para registrar entradas y salidas.</p>
+  <a class="button button-primary" href="{{ url_for('admin.escaner_nuevo') }}">Registrar escáner</a>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif escaneres %}
+  <div class="table-scroll scanners-table">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Nombre</th>
+          <th scope="col">Correo</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for escaner in escaneres %}
+          <tr>
+            <td>{{ escaner.nombre }}</td>
+            <td>{{ escaner.correo }}</td>
+            <td><span class="status status-{{ escaner.estado }}">{{ escaner.estado }}</span></td>
+            <td>
+              <div class="user-row-actions">
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.escaner_editar', usuario_id=escaner.usuario_id) }}">Editar</a>
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.escaner_password', usuario_id=escaner.usuario_id) }}">Restablecer contraseña</a>
+                {% if escaner.estado == "activo" %}
+                  <form method="post" action="{{ url_for('admin.escaner_desactivar', usuario_id=escaner.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-danger" type="submit">Desactivar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('admin.escaner_activar', usuario_id=escaner.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-state" type="submit">Activar</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="empty-state">No hay cuentas de escaneo registradas para mostrar.</p>
+{% endif %}
+{% endblock %}

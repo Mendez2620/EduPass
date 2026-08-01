@@ -446,5 +446,140 @@ class TestAuthServiceAdministradores(unittest.TestCase):
         self.assertEqual(usuarios_service.autenticar_usuario(
             historic["correo"], self.PASSWORD, self.database_path), historic)
 
+class TestAuthServiceEscaneres(unittest.TestCase):
+    PASSWORD = "ClaveEscanerServicio123"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.database_path = Path(self.temp.name) / "escaneres_service.sqlite"
+        database_manager.initialize_database(self.database_path, SCHEMA_PATH)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _scanner(self, correo="scanner@edupass.test", **changes):
+        data = {"nombre": "Escaner", "correo": correo, "password": self.PASSWORD}
+        data.update(changes)
+        return usuarios_service.crear_escaner(
+            database_path=self.database_path, **data
+        )
+
+    def _admin(self, correo="admin@edupass.test"):
+        return usuarios_service.crear_administrador(
+            "Administrador", correo, self.PASSWORD, self.database_path
+        )
+
+    def test_crear_fija_rol_activo_normaliza_y_oculta_hash(self):
+        result = self._scanner(correo="  SCANNER@EDUPASS.TEST  ")
+        self.assertEqual(
+            (result["rol_nombre"], result["estado"], result["correo"]),
+            ("escaner", "activo", "scanner@edupass.test"),
+        )
+        self.assertNotIn("password_hash", result)
+        with self.assertRaises(DuplicateUserError):
+            self._scanner(nombre="Duplicado")
+
+    def test_listar_y_consultar_solo_escaneres(self):
+        scanner = self._scanner()
+        admin = self._admin()
+        rows = usuarios_service.listar_escaneres(self.database_path)
+        self.assertEqual([row["usuario_id"] for row in rows], [scanner["usuario_id"]])
+        self.assertTrue(all("password_hash" not in row for row in rows))
+        self.assertEqual(usuarios_service.consultar_escaner(
+            scanner["usuario_id"], self.database_path)["usuario_id"], scanner["usuario_id"])
+        with self.assertRaises(UsuarioNoEncontradoError):
+            usuarios_service.consultar_escaner(admin["usuario_id"], self.database_path)
+
+    def test_editar_conserva_rol_estado_password_y_correo_propio(self):
+        scanner = self._scanner()
+        before = usuario_repository.obtener_por_id(scanner["usuario_id"], self.database_path)
+        edited = usuarios_service.editar_escaner(
+            scanner["usuario_id"], "Escaner Editado", "SCANNER@EDUPASS.TEST",
+            self.database_path,
+        )
+        after = usuario_repository.obtener_por_id(scanner["usuario_id"], self.database_path)
+        self.assertEqual(edited["nombre"], "Escaner Editado")
+        self.assertEqual((after["rol_id"], after["estado"], after["password_hash"]),
+                         (before["rol_id"], before["estado"], before["password_hash"]))
+
+    def test_editar_rechaza_correo_de_otro_usuario_incluso_admin(self):
+        scanner = self._scanner()
+        other = self._scanner("other@edupass.test")
+        admin = self._admin()
+        for email in (other["correo"], admin["correo"]):
+            with self.subTest(email=email):
+                with self.assertRaises(DuplicateUserError):
+                    usuarios_service.editar_escaner(
+                        scanner["usuario_id"], "Duplicado", email, self.database_path
+                    )
+
+    def test_restablecer_password_rechaza_anterior_acepta_nueva_y_no_vacia(self):
+        scanner = self._scanner()
+        new_password = "NuevaClaveEscaner456"
+        result = usuarios_service.restablecer_password_escaner(
+            scanner["usuario_id"], new_password, self.database_path
+        )
+        self.assertNotIn("password_hash", result)
+        with self.assertRaises(AuthenticationError):
+            usuarios_service.autenticar_usuario(
+                scanner["correo"], self.PASSWORD, self.database_path
+            )
+        self.assertEqual(usuarios_service.autenticar_usuario(
+            scanner["correo"], new_password, self.database_path)["usuario_id"],
+            scanner["usuario_id"],
+        )
+        for invalid in ("", "corta", "x" * 257):
+            with self.subTest(length=len(invalid)):
+                with self.assertRaises(ValidationError):
+                    usuarios_service.restablecer_password_escaner(
+                        scanner["usuario_id"], invalid, self.database_path
+                    )
+
+    def test_activar_desactivar_y_actor_no_administrador_rechazado(self):
+        admin = self._admin()
+        scanner = self._scanner()
+        other_scanner = self._scanner("other@edupass.test")
+        self.assertEqual(usuarios_service.desactivar_escaner(
+            scanner["usuario_id"], admin["usuario_id"], self.database_path)["estado"],
+            "inactivo",
+        )
+        with self.assertRaises(AuthenticationError):
+            usuarios_service.autenticar_usuario(
+                scanner["correo"], self.PASSWORD, self.database_path
+            )
+        self.assertEqual(usuarios_service.activar_escaner(
+            scanner["usuario_id"], admin["usuario_id"], self.database_path)["estado"],
+            "activo",
+        )
+        with self.assertRaises(AuthorizationError):
+            usuarios_service.desactivar_escaner(
+                scanner["usuario_id"], other_scanner["usuario_id"], self.database_path
+            )
+
+    def test_ids_inexistente_y_repository_error(self):
+        for usuario_id in (0, -1, "1", True, None):
+            with self.subTest(usuario_id=usuario_id):
+                with self.assertRaises(ValidationError):
+                    usuarios_service.consultar_escaner(usuario_id, self.database_path)
+        with self.assertRaises(UsuarioNoEncontradoError):
+            usuarios_service.consultar_escaner(99999, self.database_path)
+        error = RepositoryError("controlado")
+        with patch.object(usuario_repository, "listar_por_rol", side_effect=error):
+            with self.assertRaises(RepositoryError) as context:
+                usuarios_service.listar_escaneres(self.database_path)
+        self.assertIs(context.exception, error)
+
+    def test_crud_administradores_y_autenticacion_siguen_compatibles(self):
+        admin = self._admin()
+        second = usuarios_service.crear_administrador(
+            "Segundo", "second@edupass.test", self.PASSWORD, self.database_path
+        )
+        edited = usuarios_service.editar_administrador(
+            second["usuario_id"], "Segundo Editado", second["correo"], self.database_path
+        )
+        self.assertEqual(edited["rol_nombre"], "administrador")
+        self.assertEqual(usuarios_service.autenticar_usuario(
+            admin["correo"], self.PASSWORD, self.database_path), admin)
+
 if __name__ == "__main__":
     unittest.main()
