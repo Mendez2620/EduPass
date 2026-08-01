@@ -24,6 +24,14 @@ CREATE TABLE IF NOT EXISTS alumnos (
     estado TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS usuario_alumno (
+    usuario_alumno_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL UNIQUE,
+    alumno_id INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios (usuario_id),
+    FOREIGN KEY (alumno_id) REFERENCES alumnos (alumno_id)
+);
+
 CREATE TABLE IF NOT EXISTS tutores (
     tutor_id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,

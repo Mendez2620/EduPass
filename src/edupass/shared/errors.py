@@ -65,6 +65,22 @@ class UsuarioNoEncontradoError(EduPassError):
     """Error causado por la ausencia del usuario solicitado."""
 
 
+class UsuarioAlumnoYaVinculadoError(ValidationError):
+    """Error causado por un usuario que ya tiene un alumno vinculado."""
+
+
+class AlumnoYaTieneUsuarioError(ValidationError):
+    """Error causado por un alumno que ya tiene una cuenta vinculada."""
+
+
+class UsuarioNoEsAlumnoError(ValidationError):
+    """Error causado por intentar vincular una cuenta de otro rol."""
+
+
+class VinculoUsuarioAlumnoNoEncontradoError(EduPassError):
+    """Error causado por la ausencia de una vinculacion solicitada."""
+
+
 class AutoBloqueoAdministradorError(EduPassError):
     """Error causado por el intento de auto-desactivar un administrador."""
 

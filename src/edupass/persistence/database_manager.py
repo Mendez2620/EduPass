@@ -16,6 +16,7 @@ EXPECTED_TABLES = {
     "roles",
     "usuarios",
     "alumnos",
+    "usuario_alumno",
     "tutores",
     "alumno_tutor",
     "areas_internas",
