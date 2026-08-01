@@ -107,9 +107,9 @@ class TestWebRoles(unittest.TestCase):
 
         self.assertIn("Registro de movimientos", body)
         self.assertIn("/scanner/validar", body)
-        self.assertIn("Registrar entrada o salida", body)
+        self.assertIn("Escanear o registrar movimiento", body)
         self.assertNotIn("getUserMedia", body)
-        self.assertIn("Registra entradas y salidas", body)
+        self.assertIn("captura manual permanece disponible", body)
         self.assertNotIn("/admin/escaneres", body)
         self.assertNotIn("Escáneres", body)
 

@@ -313,13 +313,14 @@ class TestWebQrValidation(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Token inválido.", response.get_data(as_text=True))
 
-    def test_no_existe_camara(self):
+    def test_existe_interfaz_de_camara_con_respaldo_manual(self):
         self._login()
         body = self.client.get("/scanner/validar").get_data(as_text=True)
-        self.assertIn("camara permanece pendiente", body)
-        self.assertNotIn("getUserMedia", body)
-        self.assertNotIn("<video", body)
-
+        self.assertIn("Escanear mediante cámara", body)
+        self.assertIn("Activar cámara", body)
+        self.assertIn("<video", body)
+        self.assertIn("Captura manual", body)
+        self.assertIn("vendor/zxing-browser/0.2.1/zxing-browser.min.js", body)
     def test_no_existe_campo_de_movimiento(self):
         self._login()
         body = self.client.get("/scanner/validar").get_data(as_text=True)

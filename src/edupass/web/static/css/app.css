@@ -718,3 +718,58 @@ tbody tr:last-child td {
     min-width: 660px;
   }
 }
+.camera-panel {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+}
+
+.camera-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.camera-video {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #17211c;
+  border-radius: 6px;
+}
+
+.camera-video[hidden] {
+  display: none;
+}
+
+.camera-status {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--canvas);
+  border-left: 4px solid var(--brand);
+  font-weight: 700;
+}
+
+.camera-controls .button:focus-visible,
+.camera-video:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (max-width: 390px) {
+  .camera-panel {
+    padding: 18px;
+  }
+
+  .camera-controls,
+  .camera-controls .button {
+    width: 100%;
+  }
+}

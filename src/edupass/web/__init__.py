@@ -9,6 +9,7 @@ from typing import Any
 
 from flask import Flask, render_template
 from flask_login import current_user
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from edupass.persistence import database_manager
 from edupass.web.admin_routes import admin_blueprint
@@ -17,6 +18,9 @@ from edupass.web.extensions import csrf, login_manager
 from edupass.web.forms import LogoutForm
 from edupass.web.scanner_routes import scanner_blueprint
 from edupass.web.security import load_user
+
+
+_HTTPS_MODES = frozenset({"off", "proxy", "direct"})
 
 
 def _session_lifetime() -> timedelta:
@@ -41,11 +45,45 @@ def _database_path() -> Path:
     return database_manager.get_database_path()
 
 
+def _normalize_https_mode(value: object) -> str:
+    if not isinstance(value, str):
+        raise RuntimeError("EDUPASS_HTTPS_MODE debe ser off, proxy o direct.")
+    mode = value.strip().lower()
+    if mode not in _HTTPS_MODES:
+        raise RuntimeError("EDUPASS_HTTPS_MODE debe ser off, proxy o direct.")
+    return mode
+
+
+def _configure_https(app: Flask, explicit_keys: set[str]) -> None:
+    mode = _normalize_https_mode(app.config.get("HTTPS_MODE", "off"))
+    app.config["HTTPS_MODE"] = mode
+    secure = mode in {"proxy", "direct"}
+    derived = {
+        "PREFERRED_URL_SCHEME": "https" if secure else "http",
+        "SESSION_COOKIE_SECURE": secure,
+        "REMEMBER_COOKIE_SECURE": secure,
+    }
+    for key, value in derived.items():
+        if key not in explicit_keys:
+            app.config[key] = value
+    if mode == "proxy":
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=0,
+            x_proto=1,
+            x_host=1,
+            x_port=0,
+            x_prefix=0,
+        )
+
+
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     """Crea e inicializa una instancia configurable de EduPass web."""
     testing = bool(test_config and test_config.get("TESTING"))
     secret_key = os.getenv("EDUPASS_SECRET_KEY")
-    if not testing and not secret_key:
+    if not testing and not secret_key and not (
+        test_config and test_config.get("SECRET_KEY")
+    ):
         raise RuntimeError(
             "EDUPASS_SECRET_KEY es obligatoria para ejecutar la aplicacion."
         )
@@ -55,12 +93,16 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         SECRET_KEY=secret_key,
         DATABASE_PATH=_database_path(),
         PERMANENT_SESSION_LIFETIME=_session_lifetime(),
+        HTTPS_MODE=os.getenv("EDUPASS_HTTPS_MODE", "off"),
+        PREFERRED_URL_SCHEME="http",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=False,
+        REMEMBER_COOKIE_SECURE=False,
         WTF_CSRF_ENABLED=True,
         TESTING=False,
     )
+    explicit_keys = set(test_config or {})
     if test_config:
         app.config.update(test_config)
 
@@ -69,6 +111,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             "SECRET_KEY debe configurarse para crear la aplicacion."
         )
     app.config["DATABASE_PATH"] = Path(app.config["DATABASE_PATH"])
+    _configure_https(app, explicit_keys)
 
     database_manager.initialize_database(app.config["DATABASE_PATH"])
 
@@ -100,8 +143,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     @app.errorhandler(404)
     def not_found(_error):
         return render_template(
-            "errors/404.html",
-            title="Recurso no encontrado",
+            "errors/404.html", title="Recurso no encontrado"
         ), 404
 
     return app

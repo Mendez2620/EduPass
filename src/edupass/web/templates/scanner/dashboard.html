@@ -9,10 +9,10 @@
 <section class="action-panel" aria-labelledby="movement-title">
   <div>
     <h2 id="movement-title">Registro de movimientos</h2>
-    <p>Registra entradas y salidas mediante un token temporal de un solo uso.</p>
+    <p>Selecciona Entrada o Salida y captura el QR mediante cámara. La captura manual permanece disponible como respaldo.</p>
   </div>
-  <a class="button button-primary" href="{{ url_for('scanner.validar_qr') }}">Registrar entrada o salida</a>
+  <a class="button button-primary" href="{{ url_for('scanner.validar_qr') }}">Escanear o registrar movimiento</a>
 </section>
 
-<p class="notice">La captura es manual; la camara permanece pendiente.</p>
+<p class="notice">La cámara requiere permiso y un contexto HTTPS o localhost. Desde un teléfono puedes utilizar el enlace HTTPS reenviado por VS Code, sin exponer el token en la URL.</p>
 {% endblock %}

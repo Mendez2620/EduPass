@@ -3,11 +3,25 @@
 <section class="page-heading">
   <p class="eyebrow">Personal de escaneo</p>
   <h1>Registrar movimiento</h1>
-  <p>Selecciona Entrada o Salida y captura manualmente el token. La camara permanece pendiente.</p>
+  <p>Selecciona Entrada o Salida. Puedes detectar el token mediante la cámara o usar la captura manual.</p>
+</section>
+
+<section class="camera-panel" aria-labelledby="camera-title">
+  <div>
+    <h2 id="camera-title">Escanear mediante cámara</h2>
+    <p>La cámara sólo captura el token QR. El movimiento se confirma manualmente en el formulario.</p>
+  </div>
+  <div class="camera-controls">
+    <button class="button button-primary" type="button" data-camera-start>Activar cámara</button>
+    <button class="button button-secondary bordered-button" type="button" data-camera-stop disabled>Cancelar cámara</button>
+  </div>
+  <video class="camera-video" data-camera-video autoplay muted playsinline hidden></video>
+  <p class="camera-status" data-camera-status role="status" aria-live="polite">Cámara inactiva. Puedes usar la captura manual.</p>
 </section>
 
 <section class="validation-panel" aria-labelledby="manual-validation-title">
-  <h2 id="manual-validation-title">Captura manual</h2>
+  <h2 id="manual-validation-title">Captura manual y confirmación</h2>
+  <p>Si no hay cámara, permiso, HTTPS o JavaScript, pega el token manualmente y confirma el movimiento.</p>
   <form class="movement-form" method="post" action="{{ url_for('scanner.validar_qr') }}" novalidate data-movement-form>
     {{ form.hidden_tag() }}
     <div class="field">
@@ -19,7 +33,7 @@
     </div>
     <div class="field">
       {{ form.token.label }}
-      {{ form.token(class_="manual-token", maxlength="43", autocomplete="off", spellcheck="false") }}
+      {{ form.token(class_="manual-token", maxlength="43", autocomplete="off", spellcheck="false", **{"data-token-input": ""}) }}
       {% for error in form.token.errors %}
         <p class="field-error">{{ error }}</p>
       {% endfor %}
@@ -38,5 +52,6 @@
 <a class="button button-secondary bordered-button" href="{{ url_for('scanner.dashboard') }}">Volver al panel</a>
 {% endblock %}
 {% block scripts %}
+  <script src="{{ url_for('static', filename='vendor/zxing-browser/0.2.1/zxing-browser.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/scanner_validation.js') }}" defer></script>
 {% endblock %}

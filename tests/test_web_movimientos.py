@@ -395,6 +395,7 @@ class TestWebMovimientos(unittest.TestCase):
     def test_37_javascript_referenciado(self):
         self._login()
         body = self.client.get("/scanner/validar").get_data(as_text=True)
+        self.assertIn("vendor/zxing-browser/0.2.1/zxing-browser.min.js", body)
         self.assertIn("js/scanner_validation.js", body)
 
     def test_38_formulario_usable_sin_javascript(self):
