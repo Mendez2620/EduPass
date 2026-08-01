@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Portal del alumno</p>
+  <h1>Mi credencial</h1>
+  <p>La credencial QR tiene una vigencia de 30 segundos y es de un solo uso.</p>
+</section>
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif perfil %}
+  <section class="student-credential" aria-labelledby="student-credential-title">
+    <div>
+      <h2 id="student-credential-title">{{ perfil.nombre }}</h2>
+      <dl class="student-portal-data">
+        <div><dt>Matrícula</dt><dd>{{ credencial.matricula_enmascarada if credencial else perfil.matricula }}</dd></div>
+        <div><dt>Grado</dt><dd>{{ perfil.grado }}</dd></div>
+        <div><dt>Grupo</dt><dd>{{ perfil.grupo }}</dd></div>
+      </dl>
+      {% if credencial %}
+        <p><strong>Expira:</strong> {{ credencial.expira_en }}</p>
+        <p class="credential-warning">Vigencia de {{ credencial.vigencia_segundos }} segundos. El QR es de un solo uso.</p>
+      {% else %}
+        <p class="credential-warning">Genera un QR nuevo cuando estés listo para presentarlo.</p>
+      {% endif %}
+    </div>
+    {% if qr_data_uri %}
+      <div class="student-qr-panel">
+        <img class="student-qr-image" src="{{ qr_data_uri }}" alt="Código QR temporal de mi credencial">
+      </div>
+    {% endif %}
+  </section>
+  <div class="student-credential-actions">
+    {% if credencial %}
+      <form method="post" action="{{ url_for('alumno.renovar_credencial') }}">
+        {{ renovar_form.hidden_tag() }}
+        {{ renovar_form.submit(class_="button button-primary") }}
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('alumno.generar_credencial') }}">
+        {{ generar_form.hidden_tag() }}
+        {{ generar_form.submit(class_="button button-primary") }}
+      </form>
+    {% endif %}
+    <a class="button button-secondary bordered-button" href="{{ url_for('alumno.dashboard') }}">Regresar a mi panel</a>
+  </div>
+{% endif %}
+{% endblock %}

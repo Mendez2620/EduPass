@@ -48,19 +48,19 @@ class TestRolesService(unittest.TestCase):
         )
 
     def test_rechazar_rol_diferente(self):
-        for rol in ("alumno", "tutor", "directivo", "", None):
+        for rol in ("tutor", "directivo", "", None):
             with self.subTest(rol=rol):
                 with self.assertRaises(InvalidRoleError):
                     roles_service.validar_nombre_rol(rol)
 
-    def test_asegurar_ambos_roles(self):
+    def test_asegurar_roles_de_autenticacion(self):
         roles = roles_service.asegurar_roles_autenticacion(
             self.database_path
         )
 
         self.assertEqual(
             [rol["nombre"] for rol in roles],
-            ["administrador", "escaner"],
+            ["administrador", "escaner", "alumno"],
         )
         self.assertTrue(all(rol["rol_id"] > 0 for rol in roles))
 
@@ -80,7 +80,7 @@ class TestRolesService(unittest.TestCase):
         finally:
             connection.close()
 
-        self.assertEqual(cantidad, 2)
+        self.assertEqual(cantidad, 3)
         self.assertEqual(
             [rol["rol_id"] for rol in primero],
             [rol["rol_id"] for rol in segundo],
@@ -112,7 +112,7 @@ class TestRolesService(unittest.TestCase):
         )
         self.assertEqual(
             ROLES_AUTENTICACION,
-            (ROL_ADMINISTRADOR, ROL_ESCANER),
+            (ROL_ADMINISTRADOR, ROL_ESCANER, ROL_ALUMNO),
         )
 
     def test_validar_nombre_rol_sistema_accepts_all_system_roles(self):
@@ -175,8 +175,8 @@ class TestRolesService(unittest.TestCase):
                 self.database_path,
             )
 
-    def test_historical_authentication_roles_still_create_users(self):
-        for index, role in enumerate(ROLES_AUTENTICACION):
+    def test_historical_demo_roles_still_create_users(self):
+        for index, role in enumerate((ROL_ADMINISTRADOR, ROL_ESCANER)):
             with self.subTest(role=role):
                 user = usuarios_service.crear_usuario_demo(
                     role,

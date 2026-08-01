@@ -13,6 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from edupass.persistence import database_manager
 from edupass.web.admin_routes import admin_blueprint
+from edupass.web.alumno_routes import alumno_blueprint
 from edupass.web.auth_routes import auth_blueprint
 from edupass.web.extensions import csrf, login_manager
 from edupass.web.forms import LogoutForm
@@ -127,6 +128,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(admin_blueprint)
     app.register_blueprint(scanner_blueprint)
+    app.register_blueprint(alumno_blueprint)
 
     @app.context_processor
     def provide_logout_form() -> dict[str, LogoutForm | None]:

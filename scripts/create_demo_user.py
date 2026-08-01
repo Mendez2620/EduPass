@@ -9,7 +9,8 @@ import sys
 
 from edupass.modules.auth import roles_service, usuarios_service
 from edupass.persistence import database_manager
-from edupass.shared.errors import EduPassError
+from edupass.shared.constants import ROL_ADMINISTRADOR, ROL_ESCANER
+from edupass.shared.errors import EduPassError, InvalidRoleError
 
 
 def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
@@ -43,6 +44,10 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         rol_normalizado = roles_service.validar_nombre_rol(rol)
+        if rol_normalizado not in (ROL_ADMINISTRADOR, ROL_ESCANER):
+            raise InvalidRoleError(
+                "El script demo solo permite administrador o escaner."
+            )
         database_path = database_manager.initialize_database(
             arguments.database
         )

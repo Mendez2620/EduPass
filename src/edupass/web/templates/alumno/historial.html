@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Portal del alumno</p>
+  <h1>Mi historial</h1>
+  <p>Consulta de solo lectura de tus movimientos.</p>
+</section>
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif historial %}
+  <section class="student-history-summary">
+    <h2>{{ historial.alumno.nombre }}</h2>
+    <p><strong>Matrícula:</strong> {{ historial.alumno.matricula }}</p>
+  </section>
+  {% if historial.movimientos %}
+    <div class="table-scroll student-history-table">
+      <table>
+        <thead><tr><th>Tipo</th><th>Fecha y hora</th><th>Punto</th><th>Responsable</th><th>Detalle</th></tr></thead>
+        <tbody>
+          {% for movimiento in historial.movimientos %}
+            <tr>
+              <td>{{ "Entrada" if movimiento.tipo_movimiento == "entrada" else "Salida" }}</td>
+              <td>{{ movimiento.fecha_hora }}</td>
+              <td>{{ "Acceso principal" if movimiento.punto_plantel == "acceso_principal" else movimiento.punto_plantel }}</td>
+              <td>{{ movimiento.usuario_nombre or "No disponible" }}</td>
+              <td><a class="button button-secondary bordered-button" href="{{ url_for('alumno.movimiento_detalle', movimiento_id=movimiento.movimiento_id) }}">Ver detalle</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if historial.paginacion.total_paginas > 1 %}
+      <nav class="pagination" aria-label="Paginación de mi historial">
+        {% if historial.paginacion.tiene_anterior %}<a class="button button-secondary bordered-button" href="{{ url_for('alumno.historial', page=historial.paginacion.pagina - 1) }}">Anterior</a>{% endif %}
+        <span>Página {{ historial.paginacion.pagina }} de {{ historial.paginacion.total_paginas }}</span>
+        {% if historial.paginacion.tiene_siguiente %}<a class="button button-secondary bordered-button" href="{{ url_for('alumno.historial', page=historial.paginacion.pagina + 1) }}">Siguiente</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p class="empty-state">No hay movimientos registrados en tu historial.</p>
+  {% endif %}
+  <a class="button button-secondary bordered-button" href="{{ url_for('alumno.dashboard') }}">Regresar a mi panel</a>
+{% endif %}
+{% endblock %}

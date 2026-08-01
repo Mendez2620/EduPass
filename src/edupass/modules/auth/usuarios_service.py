@@ -8,11 +8,15 @@ from typing import Any
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from edupass.modules.auth import roles_service
-from edupass.persistence.repositories import usuario_repository
+from edupass.persistence.repositories import (
+    usuario_alumno_repository,
+    usuario_repository,
+)
 from edupass.shared.constants import (
     ESTADO_ACTIVO,
     ESTADO_INACTIVO,
     ROL_ADMINISTRADOR,
+    ROL_ALUMNO,
     ROL_ESCANER,
     ROLES_AUTENTICACION,
 )
@@ -161,6 +165,29 @@ def _restablecer_password_por_rol(
         obtener_objetivo(usuario_id_validado, database_path)
     )
 
+
+
+def _vinculo_alumno_valido(
+    usuario: dict[str, Any],
+    database_path: Path | None,
+) -> bool:
+    if usuario.get("rol_nombre") != ROL_ALUMNO:
+        return True
+    vinculo = usuario_alumno_repository.obtener_por_usuario(
+        usuario.get("usuario_id"), database_path
+    )
+    return bool(
+        vinculo
+        and vinculo.get("usuario_id") == usuario.get("usuario_id")
+        and vinculo.get("rol_nombre") == ROL_ALUMNO
+        and vinculo.get("usuario_estado") == ESTADO_ACTIVO
+        and vinculo.get("alumno_estado") == ESTADO_ACTIVO
+        and isinstance(vinculo.get("alumno_id"), int)
+        and not isinstance(vinculo.get("alumno_id"), bool)
+        and vinculo["alumno_id"] > 0
+    )
+
+
 def autenticar_usuario(
     correo: object,
     password: object,
@@ -196,6 +223,8 @@ def autenticar_usuario(
         raise _authentication_error()
     if usuario.get("rol_nombre") not in ROLES_AUTENTICACION:
         raise _authentication_error()
+    if not _vinculo_alumno_valido(usuario, database_path):
+        raise _authentication_error()
 
     return _usuario_seguro(usuario)
 
@@ -214,6 +243,8 @@ def obtener_usuario_sesion(
     if usuario is None or usuario.get("estado") != ESTADO_ACTIVO:
         return None
     if usuario.get("rol_nombre") not in ROLES_AUTENTICACION:
+        return None
+    if not _vinculo_alumno_valido(usuario, database_path):
         return None
     return _usuario_seguro(usuario)
 
@@ -243,6 +274,10 @@ def crear_usuario(
     correo_normalizado = _normalizar_correo(correo)
     password_validado = _validar_password_creacion(password)
     rol_normalizado = roles_service.validar_nombre_rol(rol)
+    if rol_normalizado == ROL_ALUMNO:
+        raise InvalidRoleError(
+            "Las cuentas alumno deben crearse mediante vinculacion escolar."
+        )
 
     roles = roles_service.asegurar_roles_autenticacion(database_path)
     roles_por_nombre = {item["nombre"]: item for item in roles}

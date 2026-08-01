@@ -89,9 +89,34 @@ class TestCreateDemoUserScript(unittest.TestCase):
         finally:
             connection.close()
 
-        self.assertEqual(roles, 2)
+        self.assertEqual(roles, 3)
         self.assertEqual(users, 1)
 
+    def test_creacion_exitosa_escaner(self):
+        result, stdout, stderr = self._run_script(
+            inputs=(
+                "Escaner Demo",
+                "escaner@edupass.test",
+                "escaner",
+            )
+        )
+
+        self.assertEqual(result, 0)
+        self.assertIn("escaner", stdout)
+        self.assertEqual(stderr, "")
+
+        connection = sqlite3.connect(self.database_path)
+        try:
+            role = connection.execute(
+                """
+                SELECT roles.nombre
+                FROM usuarios
+                INNER JOIN roles ON roles.rol_id = usuarios.rol_id;
+                """
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(role, "escaner")
     def test_confirmacion_de_contrasena_diferente(self):
         result, stdout, stderr = self._run_script(
             passwords=(self.PASSWORD, "OtraClave123")
@@ -102,7 +127,7 @@ class TestCreateDemoUserScript(unittest.TestCase):
         self.assertIn("[ERROR]", stderr)
         self.assertFalse(self.database_path.exists())
 
-    def test_rol_invalido(self):
+    def test_rol_alumno_se_rechaza_antes_de_inicializar_base(self):
         result, stdout, stderr = self._run_script(
             inputs=(
                 "Alumno Demo",

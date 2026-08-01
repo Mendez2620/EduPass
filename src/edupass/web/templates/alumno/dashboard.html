@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Portal del alumno</p>
+  <h1>Mi panel</h1>
+  <p>Consulta segura de tu información escolar.</p>
+</section>
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif perfil %}
+  <section class="student-portal-profile" aria-labelledby="student-profile-title">
+    <h2 id="student-profile-title">{{ perfil.nombre }}</h2>
+    <dl class="student-portal-data">
+      <div><dt>Matrícula</dt><dd>{{ perfil.matricula }}</dd></div>
+      <div><dt>Grado</dt><dd>{{ perfil.grado }}</dd></div>
+      <div><dt>Grupo</dt><dd>{{ perfil.grupo }}</dd></div>
+      <div><dt>Estado</dt><dd><span class="status status-{{ perfil.alumno_estado }}">{{ perfil.alumno_estado }}</span></dd></div>
+      <div><dt>Correo</dt><dd>{{ perfil.correo }}</dd></div>
+    </dl>
+    <p class="readonly-notice">Tus datos escolares son de solo lectura.</p>
+  </section>
+  <section class="student-portal-actions" aria-label="Accesos personales">
+    <article class="student-portal-card">
+      <h2>Mi credencial</h2>
+      <p>Genera un código QR temporal y de un solo uso.</p>
+      <a class="button button-primary" href="{{ url_for('alumno.credencial') }}">Abrir mi credencial</a>
+    </article>
+    <article class="student-portal-card">
+      <h2>Mi historial</h2>
+      <p>Consulta tus entradas y salidas registradas.</p>
+      <a class="button button-primary" href="{{ url_for('alumno.historial') }}">Abrir mi historial</a>
+    </article>
+  </section>
+{% endif %}
+{% endblock %}

@@ -10,6 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
+from edupass.modules.alumnos import alumnos_service, cuentas_alumno_service
 from edupass.modules.auth import usuarios_service
 from edupass.persistence import database_manager
 from edupass.persistence.repositories import usuario_repository
@@ -73,6 +74,14 @@ class TestWebAuth(unittest.TestCase):
         finally:
             connection.close()
 
+        self.student = alumnos_service.registrar_alumno(
+            "Alumno Web Auth", "WEB-AUTH-001", "2", "A", None,
+            "activo", self.database_path,
+        )
+        self.student_account = cuentas_alumno_service.crear_cuenta_alumno(
+            self.student["alumno_id"], "student@edupass.test", self.PASSWORD,
+            self.admin["usuario_id"], self.database_path,
+        )
     def tearDown(self):
         self.temporary_directory.cleanup()
 
@@ -121,6 +130,18 @@ class TestWebAuth(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].endswith("/scanner"))
 
+    def test_valid_student_login_redirects_to_student_portal(self):
+        response = self._login("student@edupass.test")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/alumno"))
+        root = self.client.get("/")
+        self.assertTrue(root.headers["Location"].endswith("/alumno"))
+
+    def test_inactive_student_login_uses_generic_message(self):
+        alumnos_service.desactivar_alumno(self.student["alumno_id"], self.database_path)
+        response = self._login("student@edupass.test", follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.GENERIC_MESSAGE, response.get_data(as_text=True))
     def test_invalid_credentials_and_inactive_user_share_generic_message(self):
         cases = (
             ("admin@edupass.test", "incorrecta"),

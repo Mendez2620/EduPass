@@ -276,12 +276,15 @@ class TestWebCuentasAlumno(unittest.TestCase):
         with self.app.test_request_context("/admin/cuentas-alumnos"):
             self.assertIn('name="csrf_token"', EstadoUsuarioForm(meta={"csrf": True}).hidden_tag())
 
-    def test_student_login_remains_rejected(self):
+    def test_student_login_redirects_to_personal_portal(self):
         account = self._create_account()
         response = self._login(account["correo"])
-        self.assertNotEqual(response.status_code, 302)
-        with self.assertRaises(AuthenticationError):
-            usuarios_service.autenticar_usuario(account["correo"], self.PASSWORD, self.database_path)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/alumno"))
+        authenticated = usuarios_service.autenticar_usuario(
+            account["correo"], self.PASSWORD, self.database_path
+        )
+        self.assertEqual(authenticated["rol_nombre"], "alumno")
 
     def test_existing_crud_pages_still_work(self):
         self._login()

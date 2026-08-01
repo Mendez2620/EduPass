@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Mi historial</p>
+  <h1>Detalle de movimiento</h1>
+  <p>Consulta de solo lectura.</p>
+</section>
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif movimiento %}
+  <section class="student-movement-detail">
+    <dl class="student-portal-data">
+      <div><dt>Matrícula</dt><dd>{{ movimiento.matricula }}</dd></div>
+      <div><dt>Tipo</dt><dd>{{ "Entrada" if movimiento.tipo_movimiento == "entrada" else "Salida" }}</dd></div>
+      <div><dt>Fecha y hora</dt><dd>{{ movimiento.fecha_hora }}</dd></div>
+      <div><dt>Punto</dt><dd>{{ "Acceso principal" if movimiento.punto_plantel == "acceso_principal" else movimiento.punto_plantel }}</dd></div>
+      <div><dt>Responsable</dt><dd>{{ movimiento.usuario_nombre or "No disponible" }}</dd></div>
+    </dl>
+  </section>
+{% endif %}
+<a class="button button-secondary bordered-button" href="{{ url_for('alumno.historial') }}">Regresar a mi historial</a>
+{% endblock %}

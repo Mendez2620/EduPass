@@ -217,12 +217,15 @@ class TestCuentasAlumnoService(unittest.TestCase):
         for fragment in ("SELECT ", "INSERT ", "UPDATE ", "sqlite3", "get_connection"):
             self.assertNotIn(fragment, source)
 
-    def test_student_login_remains_disabled(self):
+    def test_active_linked_student_can_authenticate(self):
         account = self._create()
-        with self.assertRaises(AuthenticationError):
-            usuarios_service.autenticar_usuario(
-                account["correo"], self.PASSWORD, self.database_path
-            )
+        authenticated = usuarios_service.autenticar_usuario(
+            account["correo"], self.PASSWORD, self.database_path
+        )
+        self.assertEqual(authenticated["usuario_id"], account["usuario_id"])
+        self.assertEqual(authenticated["rol_nombre"], ROL_ALUMNO)
+        self.assertEqual(authenticated["estado"], ESTADO_ACTIVO)
+        self.assertNotIn("password_hash", authenticated)
 
 
 if __name__ == "__main__":

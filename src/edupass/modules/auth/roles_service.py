@@ -37,7 +37,7 @@ def validar_nombre_rol(nombre: object) -> str:
 def asegurar_roles_autenticacion(
     database_path: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Garantiza de forma idempotente los dos roles de autenticacion."""
+    """Garantiza de forma idempotente los tres roles de autenticacion."""
     return [
         rol_repository.crear_si_no_existe(
             nombre,

@@ -12,6 +12,7 @@ SRC_PATH = PROJECT_ROOT / "src"
 SCHEMA_PATH = SRC_PATH / "edupass" / "persistence" / "schema.sql"
 sys.path.insert(0, str(SRC_PATH))
 
+from edupass.modules.alumnos import alumnos_service, cuentas_alumno_service
 from edupass.modules.auth import roles_service, usuarios_service
 from edupass.persistence import database_manager
 from edupass.persistence.repositories import usuario_repository
@@ -80,6 +81,89 @@ class TestAuthService(unittest.TestCase):
             self.database_path,
         )
 
+    def _crear_cuenta_alumno(self):
+        admin = self._crear_demo()
+        alumno = alumnos_service.registrar_alumno(
+            "Alumno Auth", "AUTH-001", "2", "B", None, "activo", self.database_path
+        )
+        cuenta = cuentas_alumno_service.crear_cuenta_alumno(
+            alumno["alumno_id"], "student.auth@edupass.test", self.PASSWORD,
+            admin["usuario_id"], self.database_path,
+        )
+        return admin, alumno, cuenta
+
+    def test_alumno_activo_vinculado_autentica_y_sesion_es_segura(self):
+        _, alumno, cuenta = self._crear_cuenta_alumno()
+        authenticated = usuarios_service.autenticar_usuario(
+            cuenta["correo"], self.PASSWORD, self.database_path
+        )
+        session_user = usuarios_service.obtener_usuario_sesion(
+            cuenta["usuario_id"], self.database_path
+        )
+        self.assertEqual(authenticated["rol_nombre"], "alumno")
+        self.assertEqual(session_user, authenticated)
+        self.assertNotIn("password_hash", authenticated)
+        self.assertNotIn("alumno_id", authenticated)
+        self.assertEqual(alumno["estado"], "activo")
+
+    def test_alumno_inactivo_o_cuenta_inactiva_no_autentica_con_mensaje_generico(self):
+        _, alumno, cuenta = self._crear_cuenta_alumno()
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            connection.execute("UPDATE usuarios SET estado = 'inactivo' WHERE usuario_id = ?", (cuenta["usuario_id"],))
+            connection.commit()
+        finally:
+            connection.close()
+        with self.assertRaises(AuthenticationError) as inactive_account:
+            usuarios_service.autenticar_usuario(cuenta["correo"], self.PASSWORD, self.database_path)
+        self.assertEqual(str(inactive_account.exception), self.AUTH_MESSAGE)
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            connection.execute("UPDATE usuarios SET estado = 'activo' WHERE usuario_id = ?", (cuenta["usuario_id"],))
+            connection.execute("UPDATE alumnos SET estado = 'inactivo' WHERE alumno_id = ?", (alumno["alumno_id"],))
+            connection.commit()
+        finally:
+            connection.close()
+        with self.assertRaises(AuthenticationError) as inactive_student:
+            usuarios_service.autenticar_usuario(cuenta["correo"], self.PASSWORD, self.database_path)
+        self.assertEqual(str(inactive_student.exception), self.AUTH_MESSAGE)
+
+    def test_alumno_sin_vinculo_no_autentica_y_sesion_es_none(self):
+        role = next(role for role in roles_service.asegurar_roles_autenticacion(self.database_path) if role["nombre"] == "alumno")
+        user_id = usuario_repository.crear(
+            "Alumno sin vinculo", "unlinked.auth@edupass.test",
+            generate_password_hash(self.PASSWORD), "activo", role["rol_id"], self.database_path,
+        )
+        with self.assertRaises(AuthenticationError) as context:
+            usuarios_service.autenticar_usuario("unlinked.auth@edupass.test", self.PASSWORD, self.database_path)
+        self.assertEqual(str(context.exception), self.AUTH_MESSAGE)
+        self.assertIsNone(usuarios_service.obtener_usuario_sesion(user_id, self.database_path))
+
+    def test_sesion_alumno_se_invalida_por_cuenta_alumno_o_vinculo(self):
+        _, alumno, cuenta = self._crear_cuenta_alumno()
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            connection.execute("UPDATE usuarios SET estado = 'inactivo' WHERE usuario_id = ?", (cuenta["usuario_id"],))
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertIsNone(usuarios_service.obtener_usuario_sesion(cuenta["usuario_id"], self.database_path))
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            connection.execute("UPDATE usuarios SET estado = 'activo' WHERE usuario_id = ?", (cuenta["usuario_id"],))
+            connection.execute("UPDATE alumnos SET estado = 'inactivo' WHERE alumno_id = ?", (alumno["alumno_id"],))
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertIsNone(usuarios_service.obtener_usuario_sesion(cuenta["usuario_id"], self.database_path))
+        connection = database_manager.get_connection(self.database_path)
+        try:
+            connection.execute("UPDATE alumnos SET estado = 'activo' WHERE alumno_id = ?", (alumno["alumno_id"],))
+            connection.execute("DELETE FROM usuario_alumno WHERE usuario_id = ?", (cuenta["usuario_id"],))
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertIsNone(usuarios_service.obtener_usuario_sesion(cuenta["usuario_id"], self.database_path))
     def test_crear_administrador_demo(self):
         usuario = self._crear_demo()
 
@@ -319,10 +403,10 @@ class TestAuthService(unittest.TestCase):
         with self.assertRaises(AuthorizationError):
             usuarios_service.validar_rol(usuario, "escaner")
 
-    def test_validar_rol_rechaza_rol_requerido_invalido(self):
+    def test_validar_rol_rechaza_rol_requerido_distinto(self):
         usuario = self._crear_demo()
 
-        with self.assertRaises(InvalidRoleError):
+        with self.assertRaises(AuthorizationError):
             usuarios_service.validar_rol(usuario, "alumno")
 
     def test_repository_error_se_propaga_controlado(self):

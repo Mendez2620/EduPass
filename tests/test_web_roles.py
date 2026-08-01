@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
+from edupass.modules.alumnos import alumnos_service, cuentas_alumno_service
 from edupass.modules.auth import usuarios_service
 from edupass.web import create_app
 
@@ -40,6 +41,14 @@ class TestWebRoles(unittest.TestCase):
             "escaner",
         )
 
+        self.student = alumnos_service.registrar_alumno(
+            "Alumno Roles", "ROLES-001", "1", "A", None,
+            "activo", self.database_path,
+        )
+        self.student_account = cuentas_alumno_service.crear_cuenta_alumno(
+            self.student["alumno_id"], "student.roles@edupass.test", self.PASSWORD,
+            1, self.database_path,
+        )
     def tearDown(self):
         self.temporary_directory.cleanup()
 
@@ -102,6 +111,14 @@ class TestWebRoles(unittest.TestCase):
                     response.get_data(as_text=True),
                 )
 
+    def test_student_accesses_portal_and_is_forbidden_from_other_roles(self):
+        self._login("student.roles@edupass.test")
+        for route in ("/alumno", "/alumno/credencial", "/alumno/historial"):
+            with self.subTest(route=route):
+                self.assertEqual(self.client.get(route).status_code, 200)
+        for route in ("/admin", "/admin/alumnos", "/admin/administradores", "/admin/escaneres", "/admin/cuentas-alumnos", "/scanner"):
+            with self.subTest(route=route):
+                self.assertEqual(self.client.get(route).status_code, 403)
     def test_scanner_dashboard_offers_manual_qr_validation(self):
         self._login("scanner@edupass.test")
 
@@ -152,10 +169,12 @@ class TestWebRoles(unittest.TestCase):
         self.assertNotIn("rol_id", body)
 
 
-    def test_student_personal_panel_does_not_exist_yet(self):
-        for route in ("/alumno", "/alumno/panel"):
+    def test_student_portal_requires_authentication(self):
+        for route in ("/alumno", "/alumno/credencial", "/alumno/historial"):
             with self.subTest(route=route):
-                self.assertEqual(self.client.get(route).status_code, 404)
+                response = self.client.get(route)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/login", response.headers["Location"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,10 @@
             <a href="{{ url_for('admin.historial') }}">Historial</a>
           {% elif current_user.rol_nombre == "escaner" %}
             <a href="{{ url_for('scanner.dashboard') }}">Escaneo</a>
+          {% elif current_user.rol_nombre == "alumno" %}
+            <a href="{{ url_for('alumno.dashboard') }}">Mi panel</a>
+            <a href="{{ url_for('alumno.credencial') }}">Mi credencial</a>
+            <a href="{{ url_for('alumno.historial') }}">Mi historial</a>
           {% endif %}
           <form class="logout-form" method="post" action="{{ url_for('auth.logout') }}">
             {{ logout_form.hidden_tag() }}

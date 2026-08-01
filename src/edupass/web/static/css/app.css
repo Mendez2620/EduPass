@@ -872,3 +872,118 @@ tbody tr:last-child td {
     min-width: 620px;
   }
 }
+.student-portal-profile,
+.student-credential,
+.student-history-summary,
+.student-movement-detail,
+.student-portal-card {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.student-portal-profile,
+.student-credential,
+.student-history-summary,
+.student-movement-detail {
+  margin-bottom: 22px;
+}
+
+.student-portal-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.student-portal-data > div {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.student-portal-data dt {
+  font-weight: 700;
+}
+
+.student-portal-data dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.student-portal-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.readonly-notice {
+  padding: 12px 14px;
+  background: #fff4d6;
+  border-left: 4px solid #a56600;
+  font-weight: 700;
+}
+
+.student-credential {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+  gap: 24px;
+  align-items: center;
+}
+
+.student-qr-panel,
+.student-qr-image {
+  width: 100%;
+  max-width: 360px;
+}
+
+.student-qr-image {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+}
+
+.student-credential-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.student-credential-actions form {
+  margin: 0;
+}
+
+.student-history-table td {
+  vertical-align: middle;
+}
+
+@media (max-width: 390px) {
+  .student-portal-profile,
+  .student-credential,
+  .student-history-summary,
+  .student-movement-detail,
+  .student-portal-card {
+    padding: 18px;
+  }
+
+  .student-portal-data,
+  .student-portal-actions,
+  .student-credential {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-qr-panel,
+  .student-qr-image {
+    max-width: 100%;
+  }
+
+  .student-credential-actions,
+  .student-credential-actions .button,
+  .student-credential-actions form {
+    width: 100%;
+  }
+
+  .student-history-table table {
+    min-width: 720px;
+  }
+}

@@ -138,6 +138,13 @@ class CuentaAlumnoPasswordForm(FlaskForm):
 class EstadoUsuarioForm(FlaskForm):
     submit = SubmitField("Confirmar")
 
+class AlumnoGenerarCredencialForm(FlaskForm):
+    submit = SubmitField("Generar QR")
+
+
+class AlumnoRenovarCredencialForm(FlaskForm):
+    submit = SubmitField("Renovar QR")
+
 class GenerarCredencialForm(FlaskForm):
     alumno_id = HiddenField("Alumno", validators=[DataRequired()])
     submit = SubmitField("Generar credencial")

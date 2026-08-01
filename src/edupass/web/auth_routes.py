@@ -12,7 +12,11 @@ from flask import (
 from flask_login import current_user, login_required, login_user, logout_user
 
 from edupass.modules.auth import usuarios_service
-from edupass.shared.constants import ROL_ADMINISTRADOR, ROL_ESCANER
+from edupass.shared.constants import (
+    ROL_ADMINISTRADOR,
+    ROL_ALUMNO,
+    ROL_ESCANER,
+)
 from edupass.shared.errors import AuthenticationError, RepositoryError
 from edupass.web.forms import LoginForm, LogoutForm
 from edupass.web.security import SessionUser
@@ -26,6 +30,8 @@ def _dashboard_endpoint(role_name: str) -> str | None:
         return "admin.dashboard"
     if role_name == ROL_ESCANER:
         return "scanner.dashboard"
+    if role_name == ROL_ALUMNO:
+        return "alumno.dashboard"
     return None
 
 
