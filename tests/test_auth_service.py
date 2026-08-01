@@ -16,11 +16,14 @@ from edupass.modules.auth import roles_service, usuarios_service
 from edupass.persistence import database_manager
 from edupass.persistence.repositories import usuario_repository
 from edupass.shared.errors import (
+    AutoBloqueoAdministradorError,
     AuthenticationError,
     AuthorizationError,
     DuplicateUserError,
     InvalidRoleError,
     RepositoryError,
+    UltimoAdministradorActivoError,
+    UsuarioNoEncontradoError,
     ValidationError,
 )
 
@@ -338,6 +341,110 @@ class TestAuthService(unittest.TestCase):
 
         self.assertIs(context.exception, original)
 
+
+
+class TestAuthServiceAdministradores(unittest.TestCase):
+    PASSWORD = "ClaveAdministrativa123"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.database_path = Path(self.temp.name) / "admins.sqlite"
+        database_manager.initialize_database(self.database_path, SCHEMA_PATH)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _admin(self, correo="admin@edupass.test", **changes):
+        data = {"nombre": "Administrador", "correo": correo, "password": self.PASSWORD}
+        data.update(changes)
+        return usuarios_service.crear_administrador(database_path=self.database_path, **data)
+
+    def _scanner(self):
+        return usuarios_service.crear_usuario_demo(
+            "Escaner", "scanner@edupass.test", self.PASSWORD,
+            "escaner", self.database_path,
+        )
+
+    def test_crear_listar_consultar_y_respuestas_seguras(self):
+        admin = self._admin(correo="  ADMIN@EDUPASS.TEST  ")
+        scanner = self._scanner()
+        self.assertEqual((admin["rol_nombre"], admin["estado"], admin["correo"]),
+                         ("administrador", "activo", "admin@edupass.test"))
+        self.assertNotIn("password_hash", admin)
+        rows = usuarios_service.listar_administradores(self.database_path)
+        self.assertEqual([row["usuario_id"] for row in rows], [admin["usuario_id"]])
+        self.assertTrue(all("password_hash" not in row for row in rows))
+        self.assertEqual(usuarios_service.consultar_administrador(
+            admin["usuario_id"], self.database_path)["usuario_id"], admin["usuario_id"])
+        with self.assertRaises(UsuarioNoEncontradoError):
+            usuarios_service.consultar_administrador(scanner["usuario_id"], self.database_path)
+        with self.assertRaises(DuplicateUserError):
+            self._admin(nombre="Duplicado")
+
+    def test_editar_conserva_rol_estado_password_y_valida_correo(self):
+        admin = self._admin()
+        second = self._admin("second@edupass.test")
+        before = usuario_repository.obtener_por_id(admin["usuario_id"], self.database_path)
+        edited = usuarios_service.editar_administrador(
+            admin["usuario_id"], "Editado", "ADMIN@EDUPASS.TEST", self.database_path)
+        after = usuario_repository.obtener_por_id(admin["usuario_id"], self.database_path)
+        self.assertEqual(edited["nombre"], "Editado")
+        self.assertEqual((after["rol_id"], after["estado"], after["password_hash"]),
+                         (before["rol_id"], before["estado"], before["password_hash"]))
+        with self.assertRaises(DuplicateUserError):
+            usuarios_service.editar_administrador(
+                admin["usuario_id"], "Duplicado", second["correo"], self.database_path)
+
+    def test_restablecer_password_y_longitudes(self):
+        admin = self._admin()
+        new_password = "NuevaClaveAdministrativa456"
+        result = usuarios_service.restablecer_password_administrador(
+            admin["usuario_id"], new_password, self.database_path)
+        self.assertNotIn("password_hash", result)
+        with self.assertRaises(AuthenticationError):
+            usuarios_service.autenticar_usuario(admin["correo"], self.PASSWORD, self.database_path)
+        self.assertEqual(usuarios_service.autenticar_usuario(
+            admin["correo"], new_password, self.database_path)["usuario_id"], admin["usuario_id"])
+        for invalid in ("corta", "x" * 257):
+            with self.subTest(length=len(invalid)):
+                with self.assertRaises(ValidationError):
+                    usuarios_service.restablecer_password_administrador(
+                        admin["usuario_id"], invalid, self.database_path)
+
+    def test_estados_auto_bloqueo_y_ultimo_activo(self):
+        actor = self._admin()
+        target = self._admin("target@edupass.test")
+        self.assertEqual(usuarios_service.desactivar_administrador(
+            target["usuario_id"], actor["usuario_id"], self.database_path)["estado"], "inactivo")
+        self.assertEqual(usuarios_service.activar_administrador(
+            target["usuario_id"], actor["usuario_id"], self.database_path)["estado"], "activo")
+        with self.assertRaises(AutoBloqueoAdministradorError):
+            usuarios_service.desactivar_administrador(
+                actor["usuario_id"], actor["usuario_id"], self.database_path)
+        with patch.object(usuarios_service.usuario_repository,
+                          "cambiar_estado_administrador_protegido",
+                          side_effect=UltimoAdministradorActivoError("controlado")):
+            with self.assertRaises(UltimoAdministradorActivoError):
+                usuarios_service.desactivar_administrador(
+                    target["usuario_id"], actor["usuario_id"], self.database_path)
+
+    def test_ids_errores_y_compatibilidad_historica(self):
+        for usuario_id in (0, -1, "1", True, None):
+            with self.subTest(usuario_id=usuario_id):
+                with self.assertRaises(ValidationError):
+                    usuarios_service.consultar_administrador(usuario_id, self.database_path)
+        with self.assertRaises(UsuarioNoEncontradoError):
+            usuarios_service.consultar_administrador(9999, self.database_path)
+        error = RepositoryError("controlado")
+        with patch.object(usuarios_service.usuario_repository, "listar_por_rol", side_effect=error):
+            with self.assertRaises(RepositoryError) as context:
+                usuarios_service.listar_administradores(self.database_path)
+        self.assertIs(context.exception, error)
+        historic = usuarios_service.crear_usuario_demo(
+            "Historico", "historico@edupass.test", self.PASSWORD,
+            "administrador", self.database_path)
+        self.assertEqual(usuarios_service.autenticar_usuario(
+            historic["correo"], self.PASSWORD, self.database_path), historic)
 
 if __name__ == "__main__":
     unittest.main()

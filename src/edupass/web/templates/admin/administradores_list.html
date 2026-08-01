@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administración</p>
+  <h1>Administradores</h1>
+  <p>Gestiona las cuentas administrativas y su estado.</p>
+  <a class="button button-primary" href="{{ url_for('admin.administrador_nuevo') }}">Registrar administrador</a>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif administradores %}
+  <div class="table-scroll administrators-table">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Nombre</th>
+          <th scope="col">Correo</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for administrador in administradores %}
+          <tr>
+            <td>
+              {{ administrador.nombre }}
+              {% if administrador.usuario_id == current_user.usuario_id %}
+                <span class="current-session">Sesión actual</span>
+              {% endif %}
+            </td>
+            <td>{{ administrador.correo }}</td>
+            <td><span class="status status-{{ administrador.estado }}">{{ administrador.estado }}</span></td>
+            <td>
+              <div class="user-row-actions">
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.administrador_editar', usuario_id=administrador.usuario_id) }}">Editar</a>
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.administrador_password', usuario_id=administrador.usuario_id) }}">Restablecer contraseña</a>
+                {% if administrador.estado == "activo" %}
+                  <form method="post" action="{{ url_for('admin.administrador_desactivar', usuario_id=administrador.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-danger" type="submit">Desactivar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('admin.administrador_activar', usuario_id=administrador.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-state" type="submit">Activar</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="empty-state">No hay administradores registrados para mostrar.</p>
+{% endif %}
+{% endblock %}

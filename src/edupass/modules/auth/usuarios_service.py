@@ -11,6 +11,7 @@ from edupass.modules.auth import roles_service
 from edupass.persistence.repositories import usuario_repository
 from edupass.shared.constants import (
     ESTADO_ACTIVO,
+    ESTADO_INACTIVO,
     ROL_ADMINISTRADOR,
     ROL_ESCANER,
     ROLES_AUTENTICACION,
@@ -21,6 +22,7 @@ from edupass.shared.errors import (
     DuplicateUserError,
     InvalidRoleError,
     RepositoryError,
+    UsuarioNoEncontradoError,
     ValidationError,
 )
 
@@ -29,6 +31,7 @@ _AUTHENTICATION_MESSAGE = (
     "No fue posible iniciar sesi?n con las credenciales proporcionadas."
 )
 _MINIMUM_PASSWORD_LENGTH = 8
+_MAXIMUM_PASSWORD_LENGTH = 256
 _SAFE_USER_FIELDS = (
     "usuario_id",
     "nombre",
@@ -56,6 +59,10 @@ def _validar_password_creacion(password: object) -> str:
         raise ValidationError(
             "La contrasena debe tener al menos 8 caracteres."
         )
+    if len(password) > _MAXIMUM_PASSWORD_LENGTH:
+        raise ValidationError(
+            "La contrasena no puede exceder 256 caracteres."
+        )
     return password
 
 
@@ -77,6 +84,21 @@ def _usuario_seguro(usuario: dict[str, Any]) -> dict[str, Any]:
 
 def _authentication_error() -> AuthenticationError:
     return AuthenticationError(_AUTHENTICATION_MESSAGE)
+
+
+def _obtener_administrador(
+    usuario_id: int,
+    database_path: Path | None,
+) -> dict[str, Any]:
+    usuario = usuario_repository.obtener_por_id(usuario_id, database_path)
+    if (
+        usuario is None
+        or usuario.get("rol_nombre") != ROL_ADMINISTRADOR
+    ):
+        raise UsuarioNoEncontradoError(
+            "No se encontro el administrador solicitado."
+        )
+    return usuario
 
 
 def autenticar_usuario(
@@ -149,14 +171,14 @@ def validar_rol(
     return True
 
 
-def crear_usuario_demo(
+def crear_usuario(
     nombre: object,
     correo: object,
     password: object,
     rol: object,
     database_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Crea una cuenta de demostracion activa sin exponer su hash."""
+    """Crea una cuenta activa de un rol permitido sin exponer su hash."""
     nombre_normalizado = _normalizar_texto_obligatorio(nombre, "nombre")
     correo_normalizado = _normalizar_correo(correo)
     password_validado = _validar_password_creacion(password)
@@ -190,11 +212,165 @@ def crear_usuario_demo(
     return _usuario_seguro(usuario)
 
 
+def crear_usuario_demo(
+    nombre: object,
+    correo: object,
+    password: object,
+    rol: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Conserva la API historica de creacion de usuarios de demostracion."""
+    return crear_usuario(nombre, correo, password, rol, database_path)
+
+
+def listar_administradores(
+    database_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Lista exclusivamente cuentas administrativas seguras."""
+    return [
+        _usuario_seguro(usuario)
+        for usuario in usuario_repository.listar_por_rol(
+            ROL_ADMINISTRADOR,
+            database_path,
+        )
+    ]
+
+
+def consultar_administrador(
+    usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Consulta un administrador existente por identificador."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    return _usuario_seguro(
+        _obtener_administrador(usuario_id_validado, database_path)
+    )
+
+
+def crear_administrador(
+    nombre: object,
+    correo: object,
+    password: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Crea una cuenta con rol administrador fijado en servidor."""
+    return crear_usuario(
+        nombre,
+        correo,
+        password,
+        ROL_ADMINISTRADOR,
+        database_path,
+    )
+
+
+def editar_administrador(
+    usuario_id: object,
+    nombre: object,
+    correo: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Edita solamente nombre y correo de un administrador."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    _obtener_administrador(usuario_id_validado, database_path)
+    nombre_normalizado = _normalizar_texto_obligatorio(nombre, "nombre")
+    correo_normalizado = _normalizar_correo(correo)
+
+    existente = usuario_repository.obtener_por_correo(
+        correo_normalizado,
+        database_path,
+    )
+    if (
+        existente is not None
+        and existente["usuario_id"] != usuario_id_validado
+    ):
+        raise DuplicateUserError("El correo ya esta registrado.")
+
+    actualizado = usuario_repository.actualizar_datos(
+        usuario_id_validado,
+        nombre_normalizado,
+        correo_normalizado,
+        database_path,
+    )
+    if not actualizado:
+        raise UsuarioNoEncontradoError(
+            "No se encontro el administrador solicitado."
+        )
+    return _usuario_seguro(
+        _obtener_administrador(usuario_id_validado, database_path)
+    )
+
+
+def restablecer_password_administrador(
+    usuario_id: object,
+    password: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Reemplaza solamente el hash de contrasena del administrador."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    _obtener_administrador(usuario_id_validado, database_path)
+    password_validado = _validar_password_creacion(password)
+    actualizado = usuario_repository.actualizar_password(
+        usuario_id_validado,
+        generate_password_hash(password_validado),
+        database_path,
+    )
+    if not actualizado:
+        raise UsuarioNoEncontradoError(
+            "No se encontro el administrador solicitado."
+        )
+    return _usuario_seguro(
+        _obtener_administrador(usuario_id_validado, database_path)
+    )
+
+
+def activar_administrador(
+    usuario_id: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Activa un administrador mediante la operacion protegida."""
+    objetivo_id = _validar_usuario_id(usuario_id)
+    actor_id = _validar_usuario_id(actor_usuario_id)
+    return _usuario_seguro(
+        usuario_repository.cambiar_estado_administrador_protegido(
+            objetivo_id,
+            ESTADO_ACTIVO,
+            actor_id,
+            database_path,
+        )
+    )
+
+
+def desactivar_administrador(
+    usuario_id: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Desactiva un administrador protegiendo actor y ultimo activo."""
+    objetivo_id = _validar_usuario_id(usuario_id)
+    actor_id = _validar_usuario_id(actor_usuario_id)
+    return _usuario_seguro(
+        usuario_repository.cambiar_estado_administrador_protegido(
+            objetivo_id,
+            ESTADO_INACTIVO,
+            actor_id,
+            database_path,
+        )
+    )
+
+
 __all__ = [
     "ROL_ADMINISTRADOR",
     "ROL_ESCANER",
+    "activar_administrador",
     "autenticar_usuario",
+    "consultar_administrador",
+    "crear_administrador",
     "crear_usuario_demo",
+    "desactivar_administrador",
+    "editar_administrador",
+    "listar_administradores",
     "obtener_usuario_sesion",
+    "restablecer_password_administrador",
     "validar_rol",
 ]

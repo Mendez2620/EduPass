@@ -59,7 +59,12 @@ class TestWebRoles(unittest.TestCase):
         )
 
     def test_visitor_is_redirected_from_protected_routes(self):
-        for route in ("/admin", "/admin/alumnos", "/scanner"):
+        for route in (
+            "/admin",
+            "/admin/alumnos",
+            "/admin/administradores",
+            "/scanner",
+        ):
             with self.subTest(route=route):
                 response = self.client.get(route)
                 self.assertEqual(response.status_code, 302)
@@ -80,7 +85,11 @@ class TestWebRoles(unittest.TestCase):
         self._login("scanner@edupass.test")
 
         self.assertEqual(self.client.get("/scanner").status_code, 200)
-        for route in ("/admin", "/admin/alumnos"):
+        for route in (
+            "/admin",
+            "/admin/alumnos",
+            "/admin/administradores",
+        ):
             with self.subTest(route=route):
                 response = self.client.get(route)
                 self.assertEqual(response.status_code, 403)
@@ -128,6 +137,8 @@ class TestWebRoles(unittest.TestCase):
         body = self.client.get("/admin").get_data(as_text=True)
 
         self.assertIn("administrador", body)
+        self.assertIn("Administradores", body)
+        self.assertIn("/admin/administradores", body)
         self.assertNotIn("rol_id", body)
 
 

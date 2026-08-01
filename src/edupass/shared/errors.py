@@ -61,6 +61,17 @@ class InvalidRoleError(ValidationError):
     """Error causado por un rol fuera del alcance de autenticacion."""
 
 
+class UsuarioNoEncontradoError(EduPassError):
+    """Error causado por la ausencia del usuario solicitado."""
+
+
+class AutoBloqueoAdministradorError(EduPassError):
+    """Error causado por el intento de auto-desactivar un administrador."""
+
+
+class UltimoAdministradorActivoError(EduPassError):
+    """Error causado por intentar desactivar al ultimo administrador."""
+
 class MovimientoError(EduPassError):
     """Error controlado del registro de movimientos."""
 

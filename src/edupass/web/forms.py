@@ -8,7 +8,7 @@ from wtforms import (
     StringField,
     SubmitField,
 )
-from wtforms.validators import DataRequired, Length
+from wtforms.validators import DataRequired, EqualTo, Length
 
 
 class LoginForm(FlaskForm):
@@ -38,6 +38,53 @@ class AlumnoForm(FlaskForm):
 class EstadoAlumnoForm(FlaskForm):
     submit = SubmitField("Confirmar")
 
+
+class AdministradorCrearForm(FlaskForm):
+    nombre = StringField(
+        "Nombre",
+        validators=[DataRequired(), Length(max=120)],
+    )
+    correo = StringField(
+        "Correo",
+        validators=[DataRequired(), Length(max=254)],
+    )
+    password = PasswordField(
+        "Contraseña",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    submit = SubmitField("Guardar administrador")
+
+
+class AdministradorEditarForm(FlaskForm):
+    nombre = StringField(
+        "Nombre",
+        validators=[DataRequired(), Length(max=120)],
+    )
+    correo = StringField(
+        "Correo",
+        validators=[DataRequired(), Length(max=254)],
+    )
+    submit = SubmitField("Guardar administrador")
+
+
+class AdministradorPasswordForm(FlaskForm):
+    password = PasswordField(
+        "Nueva contraseña",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar nueva contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    submit = SubmitField("Actualizar contraseña")
+
+
+class EstadoUsuarioForm(FlaskForm):
+    submit = SubmitField("Confirmar")
 
 class GenerarCredencialForm(FlaskForm):
     alumno_id = HiddenField("Alumno", validators=[DataRequired()])

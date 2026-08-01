@@ -2,6 +2,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -19,9 +20,13 @@ from edupass.persistence.repositories import (
     usuario_repository,
 )
 from edupass.shared.errors import (
+    AuthorizationError,
+    AutoBloqueoAdministradorError,
     ConsultaSqlError,
     DuplicateUserError,
     RepositoryError,
+    UltimoAdministradorActivoError,
+    UsuarioNoEncontradoError,
 )
 
 
@@ -225,5 +230,317 @@ class TestUsuarioRepository(unittest.TestCase):
         self.assertEqual(cantidad, 0)
 
 
+class TestUsuarioRepositoryAdministradores(unittest.TestCase):
+    PASSWORD = "ClaveAdministrativa123"
+
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database_path = (
+            Path(self.temporary_directory.name) / "administradores_repo.sqlite"
+        )
+        database_manager.initialize_database(self.database_path, SCHEMA_PATH)
+        self.admin_rol = rol_repository.crear_si_no_existe(
+            "administrador", database_path=self.database_path
+        )
+        self.scanner_rol = rol_repository.crear_si_no_existe(
+            "escaner", database_path=self.database_path
+        )
+        self.password_hash = generate_password_hash(self.PASSWORD)
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _crear(self, correo, *, rol="administrador", estado="activo"):
+        role = self.admin_rol if rol == "administrador" else self.scanner_rol
+        return usuario_repository.crear(
+            correo.split("@")[0].title(),
+            correo,
+            self.password_hash,
+            estado,
+            role["rol_id"],
+            self.database_path,
+        )
+
+    def test_listar_unicamente_por_rol_y_sin_hash(self):
+        admin_id = self._crear("admin@edupass.test")
+        self._crear("scanner@edupass.test", rol="escaner")
+
+        rows = usuario_repository.listar_por_rol(
+            "administrador", self.database_path
+        )
+
+        self.assertEqual([row["usuario_id"] for row in rows], [admin_id])
+        self.assertTrue(all("password_hash" not in row for row in rows))
+        self.assertEqual(rows[0]["rol_nombre"], "administrador")
+
+    def test_actualizar_nombre_y_correo(self):
+        usuario_id = self._crear("original@edupass.test")
+
+        changed = usuario_repository.actualizar_datos(
+            usuario_id,
+            "  Nombre Editado  ",
+            "  EDITADO@EDUPASS.TEST  ",
+            self.database_path,
+        )
+        row = usuario_repository.obtener_por_id(usuario_id, self.database_path)
+
+        self.assertTrue(changed)
+        self.assertEqual(row["nombre"], "Nombre Editado")
+        self.assertEqual(row["correo"], "editado@edupass.test")
+
+    def test_actualizar_correo_duplicado(self):
+        first = self._crear("primero@edupass.test")
+        second = self._crear("segundo@edupass.test")
+
+        with self.assertRaises(DuplicateUserError):
+            usuario_repository.actualizar_datos(
+                second, "Segundo", "primero@edupass.test", self.database_path
+            )
+
+        self.assertEqual(
+            usuario_repository.obtener_por_id(second, self.database_path)[
+                "correo"
+            ],
+            "segundo@edupass.test",
+        )
+        self.assertNotEqual(first, second)
+
+    def test_actualizar_password_requiere_hash(self):
+        usuario_id = self._crear("password@edupass.test")
+        new_hash = generate_password_hash("NuevaClave123")
+
+        self.assertTrue(
+            usuario_repository.actualizar_password(
+                usuario_id, new_hash, self.database_path
+            )
+        )
+        saved = usuario_repository.obtener_por_id(
+            usuario_id, self.database_path
+        )["password_hash"]
+        self.assertTrue(check_password_hash(saved, "NuevaClave123"))
+        with self.assertRaises(RepositoryError):
+            usuario_repository.actualizar_password(
+                usuario_id, "texto-plano", self.database_path
+            )
+
+    def test_contar_administradores_activos(self):
+        self._crear("activo1@edupass.test")
+        self._crear("activo2@edupass.test")
+        self._crear("inactivo@edupass.test", estado="inactivo")
+        self._crear("scanner@edupass.test", rol="escaner")
+
+        self.assertEqual(
+            usuario_repository.contar_activos_por_rol(
+                "administrador", self.database_path
+            ),
+            2,
+        )
+
+    def test_activar_administrador(self):
+        actor = self._crear("actor@edupass.test")
+        target = self._crear("target@edupass.test", estado="inactivo")
+
+        result = usuario_repository.cambiar_estado_administrador_protegido(
+            target, "activo", actor, self.database_path
+        )
+
+        self.assertEqual(result["estado"], "activo")
+        self.assertNotIn("password_hash", result)
+
+    def test_dos_administradores_permiten_desactivar_uno(self):
+        actor = self._crear("actor@edupass.test")
+        target = self._crear("target@edupass.test")
+
+        result = usuario_repository.cambiar_estado_administrador_protegido(
+            target, "inactivo", actor, self.database_path
+        )
+
+        self.assertEqual(result["estado"], "inactivo")
+        self.assertEqual(
+            usuario_repository.contar_activos_por_rol(
+                "administrador", self.database_path
+            ),
+            1,
+        )
+
+    def test_auto_bloqueo_rechazado(self):
+        actor = self._crear("actor@edupass.test")
+        self._crear("otro@edupass.test")
+
+        with self.assertRaises(AutoBloqueoAdministradorError):
+            usuario_repository.cambiar_estado_administrador_protegido(
+                actor, "inactivo", actor, self.database_path
+            )
+
+        self.assertEqual(
+            usuario_repository.obtener_por_id(actor, self.database_path)[
+                "estado"
+            ],
+            "activo",
+        )
+
+    def test_ultimo_administrador_activo_rechazado(self):
+        actor = self._crear("actor@edupass.test")
+        target = self._crear("target@edupass.test")
+        original_loader = usuario_repository._load_query
+
+        def one_active_loader(file_name):
+            if file_name == usuario_repository._COUNT_ACTIVE_BY_ROLE_FILE:
+                return "SELECT 1 AS total_activos WHERE ? = ?;"
+            return original_loader(file_name)
+
+        with patch.object(
+            usuario_repository, "_load_query", side_effect=one_active_loader
+        ):
+            with self.assertRaises(UltimoAdministradorActivoError):
+                usuario_repository.cambiar_estado_administrador_protegido(
+                    target, "inactivo", actor, self.database_path
+                )
+
+    def test_actor_inactivo_rechazado(self):
+        actor = self._crear("actor@edupass.test", estado="inactivo")
+        target = self._crear("target@edupass.test")
+
+        with self.assertRaises(AuthorizationError):
+            usuario_repository.cambiar_estado_administrador_protegido(
+                target, "inactivo", actor, self.database_path
+            )
+
+    def test_actor_no_administrador_rechazado(self):
+        actor = self._crear("scanner@edupass.test", rol="escaner")
+        target = self._crear("target@edupass.test")
+
+        with self.assertRaises(AuthorizationError):
+            usuario_repository.cambiar_estado_administrador_protegido(
+                target, "inactivo", actor, self.database_path
+            )
+
+    def test_objetivo_de_otro_rol_rechazado(self):
+        actor = self._crear("actor@edupass.test")
+        target = self._crear("scanner@edupass.test", rol="escaner")
+
+        with self.assertRaises(UsuarioNoEncontradoError):
+            usuario_repository.cambiar_estado_administrador_protegido(
+                target, "inactivo", actor, self.database_path
+            )
+
+    def test_rollback_ante_fallo_de_actualizacion(self):
+        actor = self._crear("actor@edupass.test")
+        target = self._crear("target@edupass.test")
+        original_loader = usuario_repository._load_query
+
+        def failing_loader(file_name):
+            if file_name == usuario_repository._UPDATE_STATE_FILE:
+                return "UPDATE tabla_inexistente SET estado = ? WHERE id = ?;"
+            return original_loader(file_name)
+
+        with patch.object(
+            usuario_repository, "_load_query", side_effect=failing_loader
+        ):
+            with self.assertRaises(RepositoryError):
+                usuario_repository.cambiar_estado_administrador_protegido(
+                    target, "inactivo", actor, self.database_path
+                )
+
+        self.assertEqual(
+            usuario_repository.obtener_por_id(target, self.database_path)[
+                "estado"
+            ],
+            "activo",
+        )
+
+    def test_concurrencia_no_desactiva_a_los_dos_actores(self):
+        first = self._crear("first@edupass.test")
+        second = self._crear("second@edupass.test")
+        barrier = threading.Barrier(2)
+        outcomes = []
+        lock = threading.Lock()
+
+        def deactivate(target, actor):
+            barrier.wait()
+            try:
+                usuario_repository.cambiar_estado_administrador_protegido(
+                    target, "inactivo", actor, self.database_path
+                )
+                outcome = "ok"
+            except (AuthorizationError, UltimoAdministradorActivoError):
+                outcome = "blocked"
+            with lock:
+                outcomes.append(outcome)
+
+        threads = [
+            threading.Thread(target=deactivate, args=(second, first)),
+            threading.Thread(target=deactivate, args=(first, second)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertEqual(sorted(outcomes), ["blocked", "ok"])
+        self.assertEqual(
+            usuario_repository.contar_activos_por_rol(
+                "administrador", self.database_path
+            ),
+            1,
+        )
+
+    def test_sql_nuevo_es_parametrizado_y_sin_interpolacion(self):
+        sql_dir = SRC_PATH / "edupass" / "persistence" / "sql" / "usuarios"
+        for file_name in (
+            "select_usuarios_by_rol.sql",
+            "update_usuario_datos.sql",
+            "update_usuario_estado.sql",
+            "update_usuario_password.sql",
+            "count_usuarios_activos_by_rol.sql",
+        ):
+            with self.subTest(file_name=file_name):
+                sql = (sql_dir / file_name).read_text(encoding="utf-8")
+                self.assertIn("?", sql)
+                self.assertNotIn("%s", sql)
+                self.assertNotIn("{", sql)
+
+    def test_sql_faltante_en_listado_es_controlado(self):
+        with patch.object(
+            usuario_repository,
+            "_SELECT_BY_ROLE_FILE",
+            "archivo_inexistente.sql",
+        ):
+            with self.assertRaises(ConsultaSqlError):
+                usuario_repository.listar_por_rol(
+                    "administrador", self.database_path
+                )
+
+    def test_cierra_conexion_despues_de_listar(self):
+        real_connection = database_manager.get_connection(self.database_path)
+
+        class TrackingConnection:
+            def __init__(self, connection):
+                object.__setattr__(self, "connection", connection)
+                object.__setattr__(self, "closed", False)
+
+            def __getattr__(self, name):
+                return getattr(self.connection, name)
+
+            def __setattr__(self, name, value):
+                if name in {"connection", "closed"}:
+                    object.__setattr__(self, name, value)
+                else:
+                    setattr(self.connection, name, value)
+
+            def close(self):
+                object.__setattr__(self, "closed", True)
+                self.connection.close()
+
+        tracking = TrackingConnection(real_connection)
+        with patch.object(
+            usuario_repository.database_manager,
+            "get_connection",
+            return_value=tracking,
+        ):
+            usuario_repository.listar_por_rol("administrador", self.database_path)
+
+        self.assertTrue(tracking.closed)
 if __name__ == "__main__":
     unittest.main()

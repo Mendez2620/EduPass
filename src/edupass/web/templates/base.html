@@ -15,6 +15,7 @@
           {% if current_user.rol_nombre == "administrador" %}
             <a href="{{ url_for('admin.dashboard') }}">Administracion</a>
             <a href="{{ url_for('admin.alumnos_list') }}">Alumnos</a>
+            <a href="{{ url_for('admin.administradores_list') }}">Administradores</a>
             <a href="{{ url_for('admin.historial') }}">Historial</a>
           {% elif current_user.rol_nombre == "escaner" %}
             <a href="{{ url_for('scanner.dashboard') }}">Escaneo</a>

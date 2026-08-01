@@ -13,6 +13,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 
@@ -20,22 +21,33 @@ from edupass.modules.alumnos import alumnos_service
 from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
 from edupass.modules.historial import historial_service
+from edupass.modules.auth import usuarios_service
 from edupass.shared.constants import ESTADO_ALUMNO_ACTIVO, ROL_ADMINISTRADOR
 from edupass.shared.errors import (
+    AuthorizationError,
+    AutoBloqueoAdministradorError,
+    DuplicateUserError,
     AlumnoInactivoError,
     AlumnoNoEncontradoError,
     MatriculaDuplicadaError,
     MovimientoNoEncontradoError,
     RepositoryError,
+    UltimoAdministradorActivoError,
+    UsuarioNoEncontradoError,
     ValidationError,
 )
 from edupass.web.forms import (
+    AdministradorCrearForm,
+    AdministradorEditarForm,
+    AdministradorPasswordForm,
     AlumnoForm,
     EstadoAlumnoForm,
+    EstadoUsuarioForm,
     GenerarCredencialForm,
     RenovarCredencialForm,
 )
 from edupass.web.security import role_required
+from flask_login import current_user, logout_user
 
 
 admin_blueprint = Blueprint("admin", __name__, url_prefix="/admin")
@@ -229,10 +241,349 @@ def _handle_credencial_request(form, operation):
         )
 
 
+def _safe_administrators(rows):
+    return [
+        {
+            "usuario_id": row.get("usuario_id"),
+            "nombre": row.get("nombre"),
+            "correo": row.get("correo"),
+            "estado": row.get("estado"),
+            "rol_nombre": row.get("rol_nombre"),
+        }
+        for row in rows
+    ]
+
+
+def _render_administrador_form(
+    form,
+    operation: str,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    title = (
+        "Registrar administrador"
+        if operation == "crear"
+        else "Editar administrador"
+    )
+    return (
+        render_template(
+            "admin/administrador_form.html",
+            form=form,
+            operation=operation,
+            error_message=error_message,
+            title=title,
+        ),
+        status,
+    )
+
+
+def _render_administrador_password(
+    form,
+    administrador,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    return (
+        render_template(
+            "admin/administrador_password.html",
+            form=form,
+            administrador=administrador,
+            error_message=error_message,
+            title="Restablecer contraseña",
+        ),
+        status,
+    )
+
+
+def _render_administrador_operation_error(message: str, status: int):
+    return (
+        render_template(
+            "admin/administradores_list.html",
+            administradores=[],
+            error_message=message,
+            estado_form=EstadoUsuarioForm(),
+            title="Administradores",
+        ),
+        status,
+    )
+
+
+def _technical_administrador_error(operation: str):
+    current_app.logger.warning(
+        "No fue posible completar la operacion administrativa de usuarios: %s.",
+        operation,
+    )
+    return _render_administrador_operation_error(
+        "No fue posible completar la operación en este momento.",
+        500,
+    )
+
+
 @admin_blueprint.get("")
 @role_required(ROL_ADMINISTRADOR)
 def dashboard():
     return render_template("admin/dashboard.html", title="Administracion")
+
+
+@admin_blueprint.get("/administradores")
+@role_required(ROL_ADMINISTRADOR)
+def administradores_list():
+    try:
+        administradores = _safe_administrators(
+            usuarios_service.listar_administradores(
+                current_app.config["DATABASE_PATH"]
+            )
+        )
+    except RepositoryError:
+        return _technical_administrador_error("listar")
+
+    return render_template(
+        "admin/administradores_list.html",
+        administradores=administradores,
+        error_message=None,
+        estado_form=EstadoUsuarioForm(),
+        title="Administradores",
+    )
+
+
+@admin_blueprint.route("/administradores/nuevo", methods=["GET", "POST"])
+@role_required(ROL_ADMINISTRADOR)
+def administrador_nuevo():
+    form = AdministradorCrearForm()
+    if not form.is_submitted():
+        return _render_administrador_form(form, "crear")
+    if not form.validate_on_submit():
+        return _render_administrador_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+
+    try:
+        usuarios_service.crear_administrador(
+            form.nombre.data,
+            form.correo.data,
+            form.password.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except DuplicateUserError:
+        return _render_administrador_form(
+            form,
+            "crear",
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_administrador_form(
+            form,
+            "crear",
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_administrador_error("registrar")
+
+    flash("Administrador registrado correctamente.", "success")
+    return redirect(url_for("admin.administradores_list"))
+
+
+@admin_blueprint.route(
+    "/administradores/<int:usuario_id>/editar",
+    methods=["GET", "POST"],
+)
+@role_required(ROL_ADMINISTRADOR)
+def administrador_editar(usuario_id: int):
+    try:
+        administrador = usuarios_service.consultar_administrador(
+            usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_administrador_operation_error(
+            "No se encontró el administrador solicitado.", 404
+        )
+    except ValidationError:
+        return _render_administrador_operation_error(
+            "Revisa los datos obligatorios del administrador.", 400
+        )
+    except RepositoryError:
+        return _technical_administrador_error("consultar para editar")
+
+    form = AdministradorEditarForm()
+    if not form.is_submitted():
+        form.nombre.data = administrador["nombre"]
+        form.correo.data = administrador["correo"]
+        return _render_administrador_form(form, "editar")
+    if not form.validate_on_submit():
+        return _render_administrador_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+
+    try:
+        usuarios_service.editar_administrador(
+            usuario_id,
+            form.nombre.data,
+            form.correo.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_administrador_operation_error(
+            "No se encontró el administrador solicitado.", 404
+        )
+    except DuplicateUserError:
+        return _render_administrador_form(
+            form,
+            "editar",
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except ValidationError:
+        return _render_administrador_form(
+            form,
+            "editar",
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_administrador_error("editar")
+
+    flash("Administrador actualizado correctamente.", "success")
+    return redirect(url_for("admin.administradores_list"))
+
+
+@admin_blueprint.route(
+    "/administradores/<int:usuario_id>/password",
+    methods=["GET", "POST"],
+)
+@role_required(ROL_ADMINISTRADOR)
+def administrador_password(usuario_id: int):
+    try:
+        administrador = usuarios_service.consultar_administrador(
+            usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_administrador_operation_error(
+            "No se encontró el administrador solicitado.", 404
+        )
+    except ValidationError:
+        return _render_administrador_operation_error(
+            "Revisa los datos obligatorios del administrador.", 400
+        )
+    except RepositoryError:
+        return _technical_administrador_error("consultar contraseña")
+
+    form = AdministradorPasswordForm()
+    if not form.is_submitted():
+        return _render_administrador_password(form, administrador)
+    if not form.validate_on_submit():
+        return _render_administrador_password(
+            form,
+            administrador,
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+
+    try:
+        usuarios_service.restablecer_password_administrador(
+            usuario_id,
+            form.password.data,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_administrador_operation_error(
+            "No se encontró el administrador solicitado.", 404
+        )
+    except ValidationError:
+        return _render_administrador_password(
+            form,
+            administrador,
+            error_message="Revisa los datos obligatorios del administrador.",
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_administrador_error("restablecer contraseña")
+
+    if usuario_id == current_user.usuario_id:
+        logout_user()
+        session.clear()
+        flash(
+            "Contraseña actualizada. Inicia sesión nuevamente.",
+            "success",
+        )
+        return redirect(url_for("auth.login"))
+
+    flash("Contraseña actualizada correctamente.", "success")
+    return redirect(url_for("admin.administradores_list"))
+
+
+def _cambiar_estado_administrador(
+    usuario_id: int,
+    operation,
+    success_message: str,
+):
+    form = EstadoUsuarioForm()
+    if not form.validate_on_submit():
+        return _render_administrador_operation_error(
+            "Revisa los datos obligatorios del administrador.", 400
+        )
+    try:
+        operation(
+            usuario_id,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except UsuarioNoEncontradoError:
+        return _render_administrador_operation_error(
+            "No se encontró el administrador solicitado.", 404
+        )
+    except AutoBloqueoAdministradorError:
+        return _render_administrador_operation_error(
+            "No puedes desactivar tu propia cuenta.", 409
+        )
+    except UltimoAdministradorActivoError:
+        return _render_administrador_operation_error(
+            "No se puede desactivar al último administrador activo.", 409
+        )
+    except ValidationError:
+        return _render_administrador_operation_error(
+            "Revisa los datos obligatorios del administrador.", 400
+        )
+    except AuthorizationError:
+        return _render_administrador_operation_error(
+            "Acceso no autorizado.", 403
+        )
+    except RepositoryError:
+        return _technical_administrador_error("cambiar estado")
+
+    flash(success_message, "success")
+    return redirect(url_for("admin.administradores_list"))
+
+
+@admin_blueprint.post("/administradores/<int:usuario_id>/activar")
+@role_required(ROL_ADMINISTRADOR)
+def administrador_activar(usuario_id: int):
+    return _cambiar_estado_administrador(
+        usuario_id,
+        usuarios_service.activar_administrador,
+        "Administrador activado correctamente.",
+    )
+
+
+@admin_blueprint.post("/administradores/<int:usuario_id>/desactivar")
+@role_required(ROL_ADMINISTRADOR)
+def administrador_desactivar(usuario_id: int):
+    return _cambiar_estado_administrador(
+        usuario_id,
+        usuarios_service.desactivar_administrador,
+        "Administrador desactivado correctamente.",
+    )
 
 
 @admin_blueprint.get("/alumnos")

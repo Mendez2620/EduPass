@@ -7,18 +7,40 @@ from pathlib import Path
 from typing import Any
 
 from edupass.persistence import database_manager
-from edupass.shared.constants import ESTADO_ACTIVO, ESTADO_INACTIVO
+from edupass.shared.constants import (
+    ESTADO_ACTIVO,
+    ESTADO_INACTIVO,
+    ROL_ADMINISTRADOR,
+)
 from edupass.shared.errors import (
+    AuthorizationError,
+    AutoBloqueoAdministradorError,
     ConsultaSqlError,
     DuplicateUserError,
+    EduPassError,
     RepositoryError,
+    UltimoAdministradorActivoError,
+    UsuarioNoEncontradoError,
 )
 
 
 _SQL_DIRECTORY = Path(__file__).resolve().parent.parent / "sql" / "usuarios"
 _SELECT_BY_EMAIL_FILE = "select_usuario_by_correo.sql"
 _SELECT_BY_ID_FILE = "select_usuario_by_id.sql"
+_SELECT_BY_ROLE_FILE = "select_usuarios_by_rol.sql"
 _INSERT_FILE = "insert_usuario.sql"
+_UPDATE_DATA_FILE = "update_usuario_datos.sql"
+_UPDATE_STATE_FILE = "update_usuario_estado.sql"
+_UPDATE_PASSWORD_FILE = "update_usuario_password.sql"
+_COUNT_ACTIVE_BY_ROLE_FILE = "count_usuarios_activos_by_rol.sql"
+_SAFE_USER_FIELDS = (
+    "usuario_id",
+    "nombre",
+    "correo",
+    "estado",
+    "rol_id",
+    "rol_nombre",
+)
 
 
 def _load_query(file_name: str) -> str:
@@ -55,6 +77,12 @@ def _normalizar_nombre(nombre: object) -> str:
     return nombre.strip()
 
 
+def _normalizar_rol(rol_nombre: object) -> str:
+    if not isinstance(rol_nombre, str) or not rol_nombre.strip():
+        raise RepositoryError("El rol del usuario es obligatorio.")
+    return rol_nombre.strip().lower()
+
+
 def _validar_password_hash(password_hash: object) -> str:
     if (
         not isinstance(password_hash, str)
@@ -82,6 +110,16 @@ def _validar_rol_id(rol_id: object) -> int:
     return rol_id
 
 
+def _validar_usuario_id(usuario_id: object) -> int:
+    if (
+        isinstance(usuario_id, bool)
+        or not isinstance(usuario_id, int)
+        or usuario_id <= 0
+    ):
+        raise RepositoryError("El identificador del usuario no es valido.")
+    return usuario_id
+
+
 def _rollback(connection: sqlite3.Connection | None) -> None:
     if connection is None:
         return
@@ -99,6 +137,14 @@ def _es_correo_duplicado(error: sqlite3.IntegrityError) -> bool:
     )
 
 
+def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    return dict(row) if row is not None else None
+
+
+def _safe_user_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {field: row[field] for field in _SAFE_USER_FIELDS}
+
+
 def _fetch_one(
     file_name: str,
     parameters: tuple[Any, ...],
@@ -112,10 +158,43 @@ def _fetch_one(
         connection = database_manager.get_connection(database_path)
         connection.row_factory = sqlite3.Row
         cursor = connection.execute(query, parameters)
-        row = cursor.fetchone()
-        return dict(row) if row is not None else None
+        return _row_to_dict(cursor.fetchone())
     except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
         raise RepositoryError("No se pudo consultar el usuario.") from exc
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def _execute_update(
+    file_name: str,
+    parameters: tuple[Any, ...],
+    database_path: Path | None,
+    *,
+    duplicate_email: bool = False,
+) -> bool:
+    query = _load_query(file_name)
+    connection = None
+    cursor = None
+    try:
+        connection = database_manager.get_connection(database_path)
+        cursor = connection.execute(query, parameters)
+        connection.commit()
+        return cursor.rowcount > 0
+    except sqlite3.IntegrityError as exc:
+        _rollback(connection)
+        if duplicate_email and _es_correo_duplicado(exc):
+            raise DuplicateUserError(
+                "El correo ya esta registrado."
+            ) from exc
+        raise RepositoryError(
+            "No se pudo actualizar el usuario por una restriccion de datos."
+        ) from exc
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        _rollback(connection)
+        raise RepositoryError("No se pudo actualizar el usuario.") from exc
     finally:
         if cursor is not None:
             cursor.close()
@@ -142,6 +221,29 @@ def obtener_por_id(
 ) -> dict[str, Any] | None:
     """Devuelve un usuario y su rol mediante identificador."""
     return _fetch_one(_SELECT_BY_ID_FILE, (usuario_id,), database_path)
+
+
+def listar_por_rol(
+    rol_nombre: object,
+    database_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Lista usuarios seguros pertenecientes exclusivamente al rol indicado."""
+    query = _load_query(_SELECT_BY_ROLE_FILE)
+    rol_normalizado = _normalizar_rol(rol_nombre)
+    connection = None
+    cursor = None
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        cursor = connection.execute(query, (rol_normalizado,))
+        return [dict(row) for row in cursor.fetchall()]
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        raise RepositoryError("No se pudieron listar los usuarios.") from exc
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
 
 
 def crear(
@@ -190,6 +292,158 @@ def crear(
         raise RepositoryError("No se pudo crear el usuario.") from exc
     finally:
         if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def actualizar_datos(
+    usuario_id: object,
+    nombre: object,
+    correo: object,
+    database_path: Path | None = None,
+) -> bool:
+    """Actualiza solamente nombre y correo."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    nombre_normalizado = _normalizar_nombre(nombre)
+    correo_normalizado = _normalizar_correo(correo)
+    return _execute_update(
+        _UPDATE_DATA_FILE,
+        (nombre_normalizado, correo_normalizado, usuario_id_validado),
+        database_path,
+        duplicate_email=True,
+    )
+
+
+def actualizar_password(
+    usuario_id: object,
+    password_hash: object,
+    database_path: Path | None = None,
+) -> bool:
+    """Actualiza solamente el hash de contrasena."""
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    hash_validado = _validar_password_hash(password_hash)
+    return _execute_update(
+        _UPDATE_PASSWORD_FILE,
+        (hash_validado, usuario_id_validado),
+        database_path,
+    )
+
+
+def contar_activos_por_rol(
+    rol_nombre: object,
+    database_path: Path | None = None,
+) -> int:
+    """Cuenta usuarios activos del rol indicado."""
+    result = _fetch_one(
+        _COUNT_ACTIVE_BY_ROLE_FILE,
+        (_normalizar_rol(rol_nombre), ESTADO_ACTIVO),
+        database_path,
+    )
+    if result is None or "total_activos" not in result:
+        raise RepositoryError("No se pudieron contar los usuarios activos.")
+    try:
+        return int(result["total_activos"])
+    except (TypeError, ValueError) as exc:
+        raise RepositoryError(
+            "El total de usuarios activos no es valido."
+        ) from exc
+
+
+def cambiar_estado_administrador_protegido(
+    usuario_id: object,
+    nuevo_estado: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Cambia el estado protegiendo actor y ultimo administrador activo."""
+    objetivo_id = _validar_usuario_id(usuario_id)
+    actor_id = _validar_usuario_id(actor_usuario_id)
+    estado = _validar_estado(nuevo_estado)
+    select_query = _load_query(_SELECT_BY_ID_FILE)
+    count_query = _load_query(_COUNT_ACTIVE_BY_ROLE_FILE)
+    update_query = _load_query(_UPDATE_STATE_FILE)
+    connection = None
+    cursors: list[sqlite3.Cursor] = []
+
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        cursors.append(connection.execute("BEGIN IMMEDIATE;"))
+
+        actor_cursor = connection.execute(select_query, (actor_id,))
+        cursors.append(actor_cursor)
+        actor = _row_to_dict(actor_cursor.fetchone())
+        if (
+            actor is None
+            or actor.get("estado") != ESTADO_ACTIVO
+            or actor.get("rol_nombre") != ROL_ADMINISTRADOR
+        ):
+            raise AuthorizationError(
+                "El actor no es un administrador activo."
+            )
+
+        objetivo_cursor = connection.execute(select_query, (objetivo_id,))
+        cursors.append(objetivo_cursor)
+        objetivo = _row_to_dict(objetivo_cursor.fetchone())
+        if (
+            objetivo is None
+            or objetivo.get("rol_nombre") != ROL_ADMINISTRADOR
+        ):
+            raise UsuarioNoEncontradoError(
+                "No se encontro el administrador solicitado."
+            )
+
+        if estado == ESTADO_INACTIVO and objetivo_id == actor_id:
+            raise AutoBloqueoAdministradorError(
+                "No puedes desactivar tu propia cuenta."
+            )
+
+        if (
+            estado == ESTADO_INACTIVO
+            and objetivo.get("estado") == ESTADO_ACTIVO
+        ):
+            count_cursor = connection.execute(
+                count_query,
+                (ROL_ADMINISTRADOR, ESTADO_ACTIVO),
+            )
+            cursors.append(count_cursor)
+            count_row = _row_to_dict(count_cursor.fetchone())
+            if count_row is None or int(count_row["total_activos"]) <= 1:
+                raise UltimoAdministradorActivoError(
+                    "No se puede desactivar al ultimo administrador activo."
+                )
+
+        update_cursor = connection.execute(
+            update_query,
+            (estado, objetivo_id),
+        )
+        cursors.append(update_cursor)
+        if update_cursor.rowcount != 1:
+            raise UsuarioNoEncontradoError(
+                "No se encontro el administrador solicitado."
+            )
+
+        result_cursor = connection.execute(select_query, (objetivo_id,))
+        cursors.append(result_cursor)
+        result = _row_to_dict(result_cursor.fetchone())
+        if result is None:
+            raise RepositoryError(
+                "No se pudo recuperar el administrador actualizado."
+            )
+
+        connection.commit()
+        return _safe_user_row(result)
+    except EduPassError:
+        _rollback(connection)
+        raise
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        _rollback(connection)
+        raise RepositoryError(
+            "No se pudo cambiar el estado del administrador."
+        ) from exc
+    finally:
+        for cursor in cursors:
             cursor.close()
         if connection is not None:
             connection.close()

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administración de cuentas</p>
+  <h1>{{ "Registrar administrador" if operation == "crear" else "Editar administrador" }}</h1>
+  <p>{{ "Captura los datos de la nueva cuenta administrativa." if operation == "crear" else "Modifica únicamente el nombre y correo de la cuenta." }}</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+<section class="user-form-panel" aria-labelledby="administrator-form-title">
+  <h2 id="administrator-form-title">Datos del administrador</h2>
+  <form class="user-form" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="user-form-grid">
+      <div class="field">
+        {{ form.nombre.label }}
+        {{ form.nombre(autocomplete="name") }}
+        {% for error in form.nombre.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="field">
+        {{ form.correo.label }}
+        {{ form.correo(autocomplete="email", spellcheck="false") }}
+        {% for error in form.correo.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      {% if operation == "crear" %}
+        <div class="field">
+          {{ form.password.label }}
+          {{ form.password(autocomplete="new-password") }}
+          {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="field">
+          {{ form.confirmar_password.label }}
+          {{ form.confirmar_password(autocomplete="new-password") }}
+          {% for error in form.confirmar_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="user-form-actions">
+      {{ form.submit(class_="button button-primary") }}
+      <a class="button button-secondary bordered-button" href="{{ url_for('admin.administradores_list') }}">Regresar al listado</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

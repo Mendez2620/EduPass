@@ -649,3 +649,72 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+
+.user-form-panel {
+  max-width: 760px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.user-form-actions,
+.user-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.user-row-actions form {
+  margin: 0;
+}
+
+.password-warning {
+  padding: 12px 14px;
+  background: #fff4d6;
+  border-left: 4px solid #a56600;
+}
+
+.current-session {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  color: #ffffff;
+  background: var(--brand);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.administrators-table td {
+  vertical-align: middle;
+}
+
+@media (max-width: 390px) {
+  .user-form-panel {
+    padding: 18px;
+  }
+
+  .user-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-form-actions,
+  .user-form-actions .button,
+  .user-row-actions,
+  .user-row-actions .button,
+  .user-row-actions form {
+    width: 100%;
+  }
+
+  .administrators-table table {
+    min-width: 660px;
+  }
+}
