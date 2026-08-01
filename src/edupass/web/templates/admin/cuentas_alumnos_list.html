@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administración de cuentas</p>
+  <h1>Cuentas de alumnos</h1>
+  <p>Administra las cuentas vinculadas uno a uno con registros escolares existentes.</p>
+  <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva') }}">Crear cuenta</a>
+</section>
+
+<p class="account-access-notice">El acceso del alumno se habilitará en el siguiente incremento.</p>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif cuentas %}
+  <div class="table-scroll student-accounts-table">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Alumno</th>
+          <th scope="col">Matrícula</th>
+          <th scope="col">Grado</th>
+          <th scope="col">Grupo</th>
+          <th scope="col">Estado escolar</th>
+          <th scope="col">Correo</th>
+          <th scope="col">Estado de cuenta</th>
+          <th scope="col">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cuenta in cuentas %}
+          <tr>
+            <td>{{ cuenta.alumno_nombre }}</td>
+            <td>{{ cuenta.matricula }}</td>
+            <td>{{ cuenta.grado }}</td>
+            <td>{{ cuenta.grupo }}</td>
+            <td><span class="status status-{{ cuenta.alumno_estado }}">{{ cuenta.alumno_estado }}</span></td>
+            <td>{{ cuenta.correo }}</td>
+            <td><span class="status status-{{ cuenta.usuario_estado }}">{{ cuenta.usuario_estado }}</span></td>
+            <td>
+              <div class="account-row-actions">
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_editar', usuario_id=cuenta.usuario_id) }}">Editar correo</a>
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_password', usuario_id=cuenta.usuario_id) }}">Restablecer contraseña</a>
+                {% if cuenta.usuario_estado == "activo" %}
+                  <form method="post" action="{{ url_for('admin.cuenta_alumno_desactivar', usuario_id=cuenta.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-danger" type="submit">Desactivar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('admin.cuenta_alumno_activar', usuario_id=cuenta.usuario_id) }}">
+                    {{ estado_form.hidden_tag() }}
+                    <button class="button button-state" type="submit">Activar</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% elif not error_message %}
+  <p class="empty-state">No hay cuentas de alumnos registradas.</p>
+{% endif %}
+
+<section class="unlinked-students" aria-labelledby="unlinked-students-title">
+  <div class="section-heading-row">
+    <div>
+      <h2 id="unlinked-students-title">Alumnos sin cuenta</h2>
+      <p>Registros escolares disponibles para vincular.</p>
+    </div>
+    {% if alumnos_sin_cuenta %}
+      <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva') }}">Crear cuenta</a>
+    {% endif %}
+  </div>
+  {% if alumnos_sin_cuenta %}
+    <div class="table-scroll unlinked-students-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Alumno</th>
+            <th scope="col">Matrícula</th>
+            <th scope="col">Grado</th>
+            <th scope="col">Grupo</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for alumno in alumnos_sin_cuenta %}
+            <tr>
+              <td>{{ alumno.nombre }}</td>
+              <td>{{ alumno.matricula }}</td>
+              <td>{{ alumno.grado }}</td>
+              <td>{{ alumno.grupo }}</td>
+              <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty-state">Todos los alumnos registrados ya tienen cuenta.</p>
+  {% endif %}
+</section>
+{% endblock %}

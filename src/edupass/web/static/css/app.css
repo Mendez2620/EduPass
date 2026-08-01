@@ -773,3 +773,102 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+.student-account-form-panel,
+.unlinked-students {
+  margin-bottom: 22px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.student-account-form-panel {
+  max-width: 760px;
+}
+
+.student-account-form-grid,
+.readonly-student-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.student-account-form-wide {
+  grid-column: 1 / -1;
+}
+
+.readonly-student-data > div {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.readonly-student-data dt {
+  font-weight: 700;
+}
+
+.readonly-student-data dd {
+  margin: 4px 0 0;
+}
+
+.student-account-form-actions,
+.account-row-actions,
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.account-row-actions form {
+  margin: 0;
+}
+
+.section-heading-row {
+  justify-content: space-between;
+}
+
+.account-access-notice {
+  padding: 12px 14px;
+  background: #fff4d6;
+  border-left: 4px solid #a56600;
+  font-weight: 700;
+}
+
+.student-accounts-table td,
+.unlinked-students-table td {
+  vertical-align: middle;
+}
+
+@media (max-width: 390px) {
+  .student-account-form-panel,
+  .unlinked-students {
+    padding: 18px;
+  }
+
+  .student-account-form-grid,
+  .readonly-student-data {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-account-form-wide {
+    grid-column: auto;
+  }
+
+  .student-account-form-actions,
+  .student-account-form-actions .button,
+  .account-row-actions,
+  .account-row-actions .button,
+  .account-row-actions form,
+  .section-heading-row,
+  .section-heading-row .button {
+    width: 100%;
+  }
+
+  .student-accounts-table table {
+    min-width: 920px;
+  }
+
+  .unlinked-students-table table {
+    min-width: 620px;
+  }
+}

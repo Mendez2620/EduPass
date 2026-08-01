@@ -64,6 +64,7 @@ class TestWebRoles(unittest.TestCase):
             "/admin/alumnos",
             "/admin/administradores",
             "/admin/escaneres",
+            "/admin/cuentas-alumnos",
             "/scanner",
         ):
             with self.subTest(route=route):
@@ -91,6 +92,7 @@ class TestWebRoles(unittest.TestCase):
             "/admin/alumnos",
             "/admin/administradores",
             "/admin/escaneres",
+            "/admin/cuentas-alumnos",
         ):
             with self.subTest(route=route):
                 response = self.client.get(route)
@@ -145,8 +147,15 @@ class TestWebRoles(unittest.TestCase):
         self.assertIn("/admin/administradores", body)
         self.assertIn("Escáneres", body)
         self.assertIn("/admin/escaneres", body)
+        self.assertIn("Cuentas de alumnos", body)
+        self.assertIn("/admin/cuentas-alumnos", body)
         self.assertNotIn("rol_id", body)
 
+
+    def test_student_personal_panel_does_not_exist_yet(self):
+        for route in ("/alumno", "/alumno/panel"):
+            with self.subTest(route=route):
+                self.assertEqual(self.client.get(route).status_code, 404)
 
 if __name__ == "__main__":
     unittest.main()

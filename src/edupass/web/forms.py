@@ -94,6 +94,47 @@ class EscanerEditarForm(AdministradorEditarForm):
 class EscanerPasswordForm(AdministradorPasswordForm):
     submit = SubmitField("Actualizar contraseña")
 
+class CuentaAlumnoCrearForm(FlaskForm):
+    alumno_id = SelectField(
+        "Alumno",
+        choices=[],
+        coerce=int,
+        validators=[DataRequired()],
+    )
+    correo = StringField(
+        "Correo",
+        validators=[DataRequired(), Length(max=254)],
+    )
+    password = PasswordField(
+        "Contraseña",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    submit = SubmitField("Crear cuenta")
+
+
+class CuentaAlumnoEditarForm(FlaskForm):
+    correo = StringField(
+        "Correo",
+        validators=[DataRequired(), Length(max=254)],
+    )
+    submit = SubmitField("Guardar cuenta")
+
+
+class CuentaAlumnoPasswordForm(FlaskForm):
+    password = PasswordField(
+        "Nueva contraseña",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar nueva contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    submit = SubmitField("Actualizar contraseña")
+
 class EstadoUsuarioForm(FlaskForm):
     submit = SubmitField("Confirmar")
 

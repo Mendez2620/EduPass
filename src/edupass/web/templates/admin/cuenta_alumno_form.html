@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Administración de cuentas</p>
+  <h1>{{ "Crear cuenta de alumno" if operation == "crear" else "Editar cuenta de alumno" }}</h1>
+  <p>{{ "Selecciona un registro escolar existente y define sus credenciales." if operation == "crear" else "El correo es el único dato editable de la cuenta." }}</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+<section class="student-account-form-panel" aria-labelledby="student-account-form-title">
+  <h2 id="student-account-form-title">Datos de la cuenta</h2>
+  {% if operation == "editar" %}
+    <dl class="readonly-student-data">
+      <div><dt>Alumno</dt><dd>{{ cuenta.alumno_nombre }}</dd></div>
+      <div><dt>Matrícula</dt><dd>{{ cuenta.matricula }}</dd></div>
+      <div><dt>Grado</dt><dd>{{ cuenta.grado }}</dd></div>
+      <div><dt>Grupo</dt><dd>{{ cuenta.grupo }}</dd></div>
+      <div><dt>Estado escolar</dt><dd><span class="status status-{{ cuenta.alumno_estado }}">{{ cuenta.alumno_estado }}</span></dd></div>
+    </dl>
+  {% endif %}
+  <form class="student-account-form" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="student-account-form-grid">
+      {% if operation == "crear" %}
+        <div class="field student-account-form-wide">
+          {{ form.alumno_id.label }}
+          {{ form.alumno_id() }}
+          {% for error in form.alumno_id.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+      <div class="field student-account-form-wide">
+        {{ form.correo.label }}
+        {{ form.correo(autocomplete="email", spellcheck="false") }}
+        {% for error in form.correo.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      {% if operation == "crear" %}
+        <div class="field">
+          {{ form.password.label }}
+          {{ form.password(autocomplete="new-password") }}
+          {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="field">
+          {{ form.confirmar_password.label }}
+          {{ form.confirmar_password(autocomplete="new-password") }}
+          {% for error in form.confirmar_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="student-account-form-actions">
+      {{ form.submit(class_="button button-primary") }}
+      <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuentas_alumnos_list') }}">Regresar al listado</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

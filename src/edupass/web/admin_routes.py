@@ -17,7 +17,7 @@ from flask import (
     url_for,
 )
 
-from edupass.modules.alumnos import alumnos_service
+from edupass.modules.alumnos import alumnos_service, cuentas_alumno_service
 from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
 from edupass.modules.historial import historial_service
@@ -29,18 +29,24 @@ from edupass.shared.errors import (
     DuplicateUserError,
     AlumnoInactivoError,
     AlumnoNoEncontradoError,
+    AlumnoYaTieneUsuarioError,
     MatriculaDuplicadaError,
     MovimientoNoEncontradoError,
     RepositoryError,
     UltimoAdministradorActivoError,
     UsuarioNoEncontradoError,
+    UsuarioNoEsAlumnoError,
     ValidationError,
+    VinculoUsuarioAlumnoNoEncontradoError,
 )
 from edupass.web.forms import (
     AdministradorCrearForm,
     AdministradorEditarForm,
     AdministradorPasswordForm,
     AlumnoForm,
+    CuentaAlumnoCrearForm,
+    CuentaAlumnoEditarForm,
+    CuentaAlumnoPasswordForm,
     EstadoAlumnoForm,
     EstadoUsuarioForm,
     EscanerCrearForm,
@@ -885,6 +891,428 @@ def escaner_desactivar(usuario_id: int):
         usuario_id,
         usuarios_service.desactivar_escaner,
         "Escáner desactivado correctamente.",
+    )
+
+
+def _render_cuentas_alumno_list(
+    cuentas,
+    alumnos_sin_cuenta,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    return (
+        render_template(
+            "admin/cuentas_alumnos_list.html",
+            cuentas=cuentas,
+            alumnos_sin_cuenta=alumnos_sin_cuenta,
+            error_message=error_message,
+            estado_form=EstadoUsuarioForm(),
+            title="Cuentas de alumnos",
+        ),
+        status,
+    )
+
+
+def _render_cuenta_alumno_form(
+    form,
+    operation: str,
+    *,
+    cuenta=None,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    title = (
+        "Crear cuenta de alumno"
+        if operation == "crear"
+        else "Editar cuenta de alumno"
+    )
+    return (
+        render_template(
+            "admin/cuenta_alumno_form.html",
+            form=form,
+            operation=operation,
+            cuenta=cuenta,
+            error_message=error_message,
+            title=title,
+        ),
+        status,
+    )
+
+
+def _render_cuenta_alumno_password(
+    form,
+    cuenta,
+    *,
+    error_message: str | None = None,
+    status: int = 200,
+):
+    return (
+        render_template(
+            "admin/cuenta_alumno_password.html",
+            form=form,
+            cuenta=cuenta,
+            error_message=error_message,
+            title="Restablecer contraseña de alumno",
+        ),
+        status,
+    )
+
+
+def _cuenta_alumno_operation_error(message: str, status: int):
+    return _render_cuentas_alumno_list(
+        [], [], error_message=message, status=status
+    )
+
+
+def _technical_cuenta_alumno_error(operation: str):
+    current_app.logger.warning(
+        "No fue posible completar la operacion de cuentas alumno: %s.",
+        operation,
+    )
+    return _cuenta_alumno_operation_error(
+        "No fue posible completar la operación en este momento.", 500
+    )
+
+
+def _cuenta_alumno_not_found():
+    return _cuenta_alumno_operation_error(
+        "No se encontró la cuenta de alumno solicitada.", 404
+    )
+
+
+def _configure_student_choices(form, students):
+    form.alumno_id.choices = [
+        (
+            student["alumno_id"],
+            f'{student["nombre"]} — {student["matricula"]} — '
+            f'{student["estado"]}',
+        )
+        for student in students
+    ]
+
+
+@admin_blueprint.get("/cuentas-alumnos")
+@role_required(ROL_ADMINISTRADOR)
+def cuentas_alumnos_list():
+    try:
+        cuentas = cuentas_alumno_service.listar_cuentas_alumno(
+            current_app.config["DATABASE_PATH"]
+        )
+        alumnos_sin_cuenta = (
+            cuentas_alumno_service.listar_alumnos_sin_cuenta(
+                current_app.config["DATABASE_PATH"]
+            )
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("listar")
+    return _render_cuentas_alumno_list(cuentas, alumnos_sin_cuenta)
+
+
+@admin_blueprint.route("/cuentas-alumnos/nueva", methods=["GET", "POST"])
+@role_required(ROL_ADMINISTRADOR)
+def cuenta_alumno_nueva():
+    try:
+        students = cuentas_alumno_service.listar_alumnos_sin_cuenta(
+            current_app.config["DATABASE_PATH"]
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("preparar registro")
+
+    form = CuentaAlumnoCrearForm()
+    _configure_student_choices(form, students)
+    if not form.is_submitted():
+        return _render_cuenta_alumno_form(form, "crear")
+    if not form.validate_on_submit():
+        try:
+            submitted_student_id = int(request.form.get("alumno_id", ""))
+        except (TypeError, ValueError):
+            submitted_student_id = None
+        available_ids = {student["alumno_id"] for student in students}
+        if (
+            submitted_student_id is not None
+            and submitted_student_id > 0
+            and submitted_student_id not in available_ids
+        ):
+            try:
+                alumnos_service.consultar_alumno_por_id(
+                    submitted_student_id,
+                    current_app.config["DATABASE_PATH"],
+                )
+            except (AlumnoNoEncontradoError, ValidationError):
+                pass
+            except RepositoryError:
+                return _technical_cuenta_alumno_error(
+                    "validar alumno seleccionado"
+                )
+            else:
+                return _render_cuenta_alumno_form(
+                    form,
+                    "crear",
+                    error_message=(
+                        "El alumno ya tiene una cuenta vinculada."
+                    ),
+                    status=409,
+                )
+        return _render_cuenta_alumno_form(
+            form,
+            "crear",
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    try:
+        cuentas_alumno_service.crear_cuenta_alumno(
+            form.alumno_id.data,
+            form.correo.data,
+            form.password.data,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except DuplicateUserError:
+        return _render_cuenta_alumno_form(
+            form,
+            "crear",
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except AlumnoYaTieneUsuarioError:
+        return _render_cuenta_alumno_form(
+            form,
+            "crear",
+            error_message="El alumno ya tiene una cuenta vinculada.",
+            status=409,
+        )
+    except AlumnoInactivoError:
+        return _render_cuenta_alumno_form(
+            form,
+            "crear",
+            error_message=(
+                "No se puede activar una cuenta para un alumno inactivo."
+            ),
+            status=409,
+        )
+    except (AlumnoNoEncontradoError, UsuarioNoEncontradoError):
+        return _cuenta_alumno_not_found()
+    except AuthorizationError:
+        return _cuenta_alumno_operation_error("Acceso no autorizado.", 403)
+    except ValidationError:
+        return _render_cuenta_alumno_form(
+            form,
+            "crear",
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("registrar")
+
+    flash("Cuenta de alumno registrada correctamente.", "success")
+    return redirect(url_for("admin.cuentas_alumnos_list"))
+
+
+@admin_blueprint.route(
+    "/cuentas-alumnos/<int:usuario_id>/editar", methods=["GET", "POST"]
+)
+@role_required(ROL_ADMINISTRADOR)
+def cuenta_alumno_editar(usuario_id: int):
+    try:
+        account = cuentas_alumno_service.consultar_cuenta_alumno(
+            usuario_id, current_app.config["DATABASE_PATH"]
+        )
+    except (
+        UsuarioNoEncontradoError,
+        UsuarioNoEsAlumnoError,
+        VinculoUsuarioAlumnoNoEncontradoError,
+    ):
+        return _cuenta_alumno_not_found()
+    except ValidationError:
+        return _cuenta_alumno_operation_error(
+            "Revisa los datos obligatorios de la cuenta del alumno.", 400
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("consultar para editar")
+
+    form = CuentaAlumnoEditarForm()
+    if not form.is_submitted():
+        form.correo.data = account["correo"]
+        return _render_cuenta_alumno_form(
+            form, "editar", cuenta=account
+        )
+    if not form.validate_on_submit():
+        return _render_cuenta_alumno_form(
+            form,
+            "editar",
+            cuenta=account,
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    try:
+        cuentas_alumno_service.editar_cuenta_alumno(
+            usuario_id,
+            form.correo.data,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except DuplicateUserError:
+        return _render_cuenta_alumno_form(
+            form,
+            "editar",
+            cuenta=account,
+            error_message="El correo ya está registrado.",
+            status=409,
+        )
+    except (
+        UsuarioNoEncontradoError,
+        UsuarioNoEsAlumnoError,
+        VinculoUsuarioAlumnoNoEncontradoError,
+    ):
+        return _cuenta_alumno_not_found()
+    except AuthorizationError:
+        return _cuenta_alumno_operation_error("Acceso no autorizado.", 403)
+    except ValidationError:
+        return _render_cuenta_alumno_form(
+            form,
+            "editar",
+            cuenta=account,
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("editar")
+
+    flash("Cuenta de alumno actualizada correctamente.", "success")
+    return redirect(url_for("admin.cuentas_alumnos_list"))
+
+
+@admin_blueprint.route(
+    "/cuentas-alumnos/<int:usuario_id>/password", methods=["GET", "POST"]
+)
+@role_required(ROL_ADMINISTRADOR)
+def cuenta_alumno_password(usuario_id: int):
+    try:
+        account = cuentas_alumno_service.consultar_cuenta_alumno(
+            usuario_id, current_app.config["DATABASE_PATH"]
+        )
+    except (
+        UsuarioNoEncontradoError,
+        UsuarioNoEsAlumnoError,
+        VinculoUsuarioAlumnoNoEncontradoError,
+    ):
+        return _cuenta_alumno_not_found()
+    except ValidationError:
+        return _cuenta_alumno_operation_error(
+            "Revisa los datos obligatorios de la cuenta del alumno.", 400
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("consultar contraseña")
+
+    form = CuentaAlumnoPasswordForm()
+    if not form.is_submitted():
+        return _render_cuenta_alumno_password(form, account)
+    if not form.validate_on_submit():
+        return _render_cuenta_alumno_password(
+            form,
+            account,
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    try:
+        cuentas_alumno_service.restablecer_password_cuenta_alumno(
+            usuario_id,
+            form.password.data,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except (
+        UsuarioNoEncontradoError,
+        UsuarioNoEsAlumnoError,
+        VinculoUsuarioAlumnoNoEncontradoError,
+    ):
+        return _cuenta_alumno_not_found()
+    except AuthorizationError:
+        return _cuenta_alumno_operation_error("Acceso no autorizado.", 403)
+    except ValidationError:
+        return _render_cuenta_alumno_password(
+            form,
+            account,
+            error_message=(
+                "Revisa los datos obligatorios de la cuenta del alumno."
+            ),
+            status=400,
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("restablecer contraseña")
+
+    flash(
+        "Contraseña de la cuenta del alumno actualizada correctamente.",
+        "success",
+    )
+    return redirect(url_for("admin.cuentas_alumnos_list"))
+
+
+def _cambiar_estado_cuenta_alumno(
+    usuario_id: int, operation, success_message: str
+):
+    form = EstadoUsuarioForm()
+    if not form.validate_on_submit():
+        return _cuenta_alumno_operation_error(
+            "Revisa los datos obligatorios de la cuenta del alumno.", 400
+        )
+    try:
+        operation(
+            usuario_id,
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except AlumnoInactivoError:
+        return _cuenta_alumno_operation_error(
+            "No se puede activar una cuenta para un alumno inactivo.", 409
+        )
+    except (
+        UsuarioNoEncontradoError,
+        UsuarioNoEsAlumnoError,
+        VinculoUsuarioAlumnoNoEncontradoError,
+    ):
+        return _cuenta_alumno_not_found()
+    except AuthorizationError:
+        return _cuenta_alumno_operation_error("Acceso no autorizado.", 403)
+    except ValidationError:
+        return _cuenta_alumno_operation_error(
+            "Revisa los datos obligatorios de la cuenta del alumno.", 400
+        )
+    except RepositoryError:
+        return _technical_cuenta_alumno_error("cambiar estado")
+
+    flash(success_message, "success")
+    return redirect(url_for("admin.cuentas_alumnos_list"))
+
+
+@admin_blueprint.post("/cuentas-alumnos/<int:usuario_id>/activar")
+@role_required(ROL_ADMINISTRADOR)
+def cuenta_alumno_activar(usuario_id: int):
+    return _cambiar_estado_cuenta_alumno(
+        usuario_id,
+        cuentas_alumno_service.activar_cuenta_alumno,
+        "Cuenta de alumno activada correctamente.",
+    )
+
+
+@admin_blueprint.post("/cuentas-alumnos/<int:usuario_id>/desactivar")
+@role_required(ROL_ADMINISTRADOR)
+def cuenta_alumno_desactivar(usuario_id: int):
+    return _cambiar_estado_cuenta_alumno(
+        usuario_id,
+        cuentas_alumno_service.desactivar_cuenta_alumno,
+        "Cuenta de alumno desactivada correctamente.",
     )
 
 @admin_blueprint.get("/alumnos")
