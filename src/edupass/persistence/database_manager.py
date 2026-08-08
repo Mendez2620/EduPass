@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "dispositivos_fijos",
     "qr_tokens",
     "movimientos",
+    "notificaciones_alumno",
     "notificaciones_push",
     "intentos_rechazados",
 }

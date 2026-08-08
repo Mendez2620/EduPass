@@ -105,6 +105,26 @@ CREATE TABLE IF NOT EXISTS movimientos (
     FOREIGN KEY (dispositivo_id) REFERENCES dispositivos_fijos (dispositivo_id)
 );
 
+CREATE TABLE IF NOT EXISTS notificaciones_alumno (
+    notificacion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alumno_id INTEGER NOT NULL,
+    movimiento_id INTEGER NOT NULL UNIQUE,
+    leida INTEGER NOT NULL DEFAULT 0 CHECK (leida IN (0, 1)),
+    creada_en TEXT NOT NULL,
+    FOREIGN KEY (alumno_id) REFERENCES alumnos (alumno_id),
+    FOREIGN KEY (movimiento_id) REFERENCES movimientos (movimiento_id)
+);
+
+CREATE TABLE IF NOT EXISTS notificaciones_alumno (
+    notificacion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alumno_id INTEGER NOT NULL,
+    movimiento_id INTEGER NOT NULL UNIQUE,
+    leida INTEGER NOT NULL DEFAULT 0 CHECK (leida IN (0, 1)),
+    creada_en TEXT NOT NULL,
+    FOREIGN KEY (alumno_id) REFERENCES alumnos (alumno_id),
+    FOREIGN KEY (movimiento_id) REFERENCES movimientos (movimiento_id)
+);
+
 CREATE TABLE IF NOT EXISTS notificaciones_push (
     notificacion_id INTEGER PRIMARY KEY AUTOINCREMENT,
     movimiento_id INTEGER NOT NULL,
@@ -134,3 +154,9 @@ CREATE TABLE IF NOT EXISTS intentos_rechazados (
 
 CREATE INDEX IF NOT EXISTS idx_movimientos_alumno_fecha
 ON movimientos (alumno_id, fecha_hora DESC, movimiento_id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notificaciones_alumno_pendientes
+ON notificaciones_alumno (alumno_id, leida, creada_en DESC, notificacion_id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notificaciones_alumno_pendientes
+ON notificaciones_alumno (alumno_id, leida, creada_en DESC, notificacion_id DESC);

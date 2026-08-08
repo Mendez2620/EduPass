@@ -7,6 +7,7 @@ import base64
 from flask import (
     Blueprint,
     current_app,
+    flash,
     make_response,
     redirect,
     render_template,
@@ -31,6 +32,8 @@ from edupass.web.forms import (
     AlumnoGenerarCredencialForm,
     AlumnoRenovarCredencialForm,
     CambioPasswordObligatorioForm,
+    NotificacionLeerForm,
+    NotificacionesLeerTodasForm,
 )
 from edupass.web.security import role_required
 
@@ -410,3 +413,82 @@ def movimiento_detalle(movimiento_id: int):
         error_message=None,
         title="Detalle de movimiento",
     )
+
+
+@alumno_blueprint.get("/notificaciones")
+@role_required(ROL_ALUMNO)
+def notificaciones():
+    try:
+        result = alumno_portal_service.consultar_notificaciones_propias(
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except RepositoryError:
+        return _technical_error(
+            "alumno/notificaciones.html",
+            resultado=None,
+            leer_form=NotificacionLeerForm(),
+            todas_form=NotificacionesLeerTodasForm(),
+            title="Notificaciones",
+        )
+    except EduPassError:
+        return (
+            render_template(
+                "alumno/notificaciones.html",
+                resultado=None,
+                leer_form=NotificacionLeerForm(),
+                todas_form=NotificacionesLeerTodasForm(),
+                error_message="No se encontraron las notificaciones solicitadas.",
+                title="Notificaciones",
+            ),
+            404,
+        )
+    return render_template(
+        "alumno/notificaciones.html",
+        resultado=result,
+        leer_form=NotificacionLeerForm(),
+        todas_form=NotificacionesLeerTodasForm(),
+        error_message=None,
+        title="Notificaciones",
+    )
+
+
+@alumno_blueprint.post("/notificaciones/<int:notificacion_id>/leer")
+@role_required(ROL_ALUMNO)
+def marcar_notificacion_leida(notificacion_id: int):
+    form = NotificacionLeerForm()
+    if not form.validate_on_submit():
+        return "Solicitud inválida.", 400
+    try:
+        updated = alumno_portal_service.marcar_notificacion_propia_leida(
+            current_user.usuario_id,
+            notificacion_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except RepositoryError:
+        return "No fue posible actualizar la notificación.", 500
+    except EduPassError:
+        return "Notificación no encontrada.", 404
+    if not updated:
+        return "Notificación no encontrada.", 404
+    flash("Notificación marcada como leída.", "success")
+    return redirect(url_for("alumno.notificaciones"))
+
+
+@alumno_blueprint.post("/notificaciones/marcar-todas-leidas")
+@role_required(ROL_ALUMNO)
+def marcar_todas_notificaciones_leidas():
+    form = NotificacionesLeerTodasForm()
+    if not form.validate_on_submit():
+        return "Solicitud inválida.", 400
+    try:
+        alumno_portal_service.marcar_notificaciones_propias_leidas(
+            current_user.usuario_id,
+            current_app.config["DATABASE_PATH"],
+        )
+    except RepositoryError:
+        return "No fue posible actualizar las notificaciones.", 500
+    except EduPassError:
+        return "Notificaciones no encontradas.", 404
+    flash("Todas las notificaciones fueron marcadas como leídas.", "success")
+    return redirect(url_for("alumno.notificaciones"))

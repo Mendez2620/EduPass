@@ -266,7 +266,15 @@ class TestWebAlumnoPortal(unittest.TestCase):
 
     def test_rutas_no_contienen_alumno_id(self):
         rules = [rule.rule for rule in self.app.url_map.iter_rules() if rule.endpoint.startswith("alumno.")]
-        self.assertEqual(sorted(rules), sorted(["/alumno", "/alumno/cambiar-password", "/alumno/credencial", "/alumno/credencial/generar", "/alumno/credencial/renovar", "/alumno/historial", "/alumno/historial/movimientos/<int:movimiento_id>"]))
+        self.assertEqual(sorted(rules), sorted([
+            "/alumno", "/alumno/cambiar-password", "/alumno/credencial",
+            "/alumno/credencial/generar", "/alumno/credencial/renovar",
+            "/alumno/historial",
+            "/alumno/historial/movimientos/<int:movimiento_id>",
+            "/alumno/notificaciones",
+            "/alumno/notificaciones/<int:notificacion_id>/leer",
+            "/alumno/notificaciones/marcar-todas-leidas",
+        ]))
         self.assertTrue(all("alumno_id" not in rule for rule in rules))
 
     def test_admin_scanner_camara_https_y_crud_sin_regresion(self):

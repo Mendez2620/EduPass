@@ -26,6 +26,7 @@
             <a href="{{ url_for('alumno.dashboard') }}">Mi panel</a>
             <a href="{{ url_for('alumno.credencial') }}">Mi credencial</a>
             <a href="{{ url_for('alumno.historial') }}">Mi historial</a>
+            <a href="{{ url_for('alumno.notificaciones') }}">Notificaciones{% if notificaciones_no_leidas %} ({{ notificaciones_no_leidas }}){% endif %}</a>
           {% endif %}
           <form class="logout-form" method="post" action="{{ url_for('auth.logout') }}">
             {{ logout_form.hidden_tag() }}

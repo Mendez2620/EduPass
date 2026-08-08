@@ -166,6 +166,14 @@ class AlumnoGenerarCredencialForm(FlaskForm):
 class AlumnoRenovarCredencialForm(FlaskForm):
     submit = SubmitField("Renovar QR")
 
+
+class NotificacionLeerForm(FlaskForm):
+    submit = SubmitField("Marcar como leída")
+
+
+class NotificacionesLeerTodasForm(FlaskForm):
+    submit = SubmitField("Marcar todas como leídas")
+
 class GenerarCredencialForm(FlaskForm):
     alumno_id = HiddenField("Alumno", validators=[DataRequired()])
     submit = SubmitField("Generar credencial")

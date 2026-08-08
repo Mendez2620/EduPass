@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Portal del alumno</p>
+  <h1>Notificaciones</h1>
+  <p>Consulta los avisos internos generados por tus entradas y salidas.</p>
+</section>
+
+{% if error_message %}
+  <p class="message message-error" role="alert">{{ error_message }}</p>
+{% elif resultado %}
+  {% if resultado.notificaciones %}
+    {% if resultado.no_leidas %}
+      <form method="post" action="{{ url_for('alumno.marcar_todas_notificaciones_leidas') }}" class="notification-all-form">
+        {{ todas_form.hidden_tag() }}
+        {{ todas_form.submit(class_="button button-secondary bordered-button") }}
+      </form>
+    {% endif %}
+    <ol class="notification-list" aria-label="Notificaciones de movimientos">
+      {% for notificacion in resultado.notificaciones %}
+        <li class="notification-item{% if notificacion.leida == 0 %} notification-unread{% endif %}">
+          <div class="notification-state">
+            <span aria-hidden="true">{{ "●" if notificacion.leida == 0 else "○" }}</span>
+            <span>{{ "No leída" if notificacion.leida == 0 else "Leída" }}</span>
+          </div>
+          <h2>{{ "Entrada" if notificacion.tipo_movimiento == "entrada" else "Salida" }} registrada</h2>
+          <p>Tu {{ notificacion.tipo_movimiento }} fue registrada correctamente.</p>
+          <time datetime="{{ notificacion.fecha_hora }}">{{ notificacion.fecha_visible }} · {{ notificacion.hora_visible }}</time>
+          <div class="notification-actions">
+            <a class="button button-secondary bordered-button" href="{{ url_for('alumno.movimiento_detalle', movimiento_id=notificacion.movimiento_id) }}">Ver movimiento</a>
+            {% if notificacion.leida == 0 %}
+              <form method="post" action="{{ url_for('alumno.marcar_notificacion_leida', notificacion_id=notificacion.notificacion_id) }}">
+                {{ leer_form.hidden_tag() }}
+                {{ leer_form.submit(class_="button button-primary") }}
+              </form>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="empty-state">Todavía no tienes notificaciones de movimientos.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

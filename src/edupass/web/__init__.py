@@ -12,6 +12,9 @@ from flask_login import current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from edupass.persistence import database_manager
+from edupass.modules.alumnos import alumno_portal_service
+from edupass.shared.constants import ROL_ALUMNO
+from edupass.shared.errors import EduPassError
 from edupass.web.admin_routes import admin_blueprint
 from edupass.web.alumno_routes import alumno_blueprint
 from edupass.web.auth_routes import auth_blueprint
@@ -137,6 +140,23 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             if current_user.is_authenticated
             else None
         }
+
+    @app.context_processor
+    def provide_notification_count() -> dict[str, int]:
+        count = 0
+        if (
+            current_user.is_authenticated
+            and current_user.rol_nombre == ROL_ALUMNO
+            and current_user.requiere_cambio_password == 0
+        ):
+            try:
+                count = alumno_portal_service.contar_notificaciones_no_leidas(
+                    current_user.usuario_id,
+                    app.config["DATABASE_PATH"],
+                )
+            except EduPassError:
+                count = 0
+        return {"notificaciones_no_leidas": count}
 
     @app.errorhandler(403)
     def forbidden(_error):

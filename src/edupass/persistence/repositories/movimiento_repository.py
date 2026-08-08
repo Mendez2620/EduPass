@@ -47,6 +47,7 @@ _INSERT_FILE = "insert_movimiento.sql"
 _SELECT_BY_ID_FILE = "select_movimiento_by_id.sql"
 _SELECT_BY_STUDENT_FILE = "select_movimientos_by_alumno.sql"
 _COUNT_BY_STUDENT_FILE = "count_movimientos_by_alumno.sql"
+_INSERT_NOTIFICATION_FILE = "insert_notificacion_alumno.sql"
 
 
 def _load_query(file_name: str) -> str:
@@ -219,6 +220,7 @@ def _registrar_con_token(
     consume_qr_query = _load_query(_CONSUME_QR_FILE)
     insert_query = _load_query(_INSERT_FILE)
     select_by_id_query = _load_query(_SELECT_BY_ID_FILE)
+    insert_notification_query = _load_query(_INSERT_NOTIFICATION_FILE)
     connection = None
     cursors: list[sqlite3.Cursor] = []
 
@@ -285,6 +287,12 @@ def _registrar_con_token(
         )
         cursors.append(insert_cursor)
         movimiento_id = int(insert_cursor.lastrowid)
+
+        notification_cursor = connection.execute(
+            insert_notification_query,
+            (classification.alumno_id, movimiento_id, fecha_hora),
+        )
+        cursors.append(notification_cursor)
 
         result_cursor = connection.execute(
             select_by_id_query,

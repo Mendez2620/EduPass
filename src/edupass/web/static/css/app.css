@@ -1328,6 +1328,54 @@ td,
   }
 }
 
+.notification-all-form {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+
+.notification-item {
+  padding: 18px;
+  border: 1px solid var(--border-color, #cad6cf);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.notification-unread {
+  border-left: 5px solid #176b4b;
+}
+
+.notification-state {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.notification-item h2 {
+  margin: 8px 0;
+  font-size: 1.1rem;
+}
+
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.notification-actions form {
+  margin: 0;
+}
+
 @media (max-width: 390px) {
   .header-inner,
   .page-shell {

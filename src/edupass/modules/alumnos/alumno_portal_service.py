@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr._token_utils import Clock, TokenFactory
 from edupass.modules.historial import historial_service
 from edupass.persistence.repositories import (
+    notificacion_alumno_repository,
     usuario_alumno_repository,
     usuario_repository,
 )
@@ -137,4 +139,57 @@ def consultar_movimiento_propio(
         movement_id,
         perfil["alumno_id"],
         database_path,
+    )
+
+
+def consultar_notificaciones_propias(
+    usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Lista notificaciones derivadas de movimientos del alumno autenticado."""
+    perfil = _resolver_alumno_propio(usuario_id, database_path)
+    notifications = notificacion_alumno_repository.listar_por_alumno(
+        perfil["alumno_id"], database_path
+    )
+    for notification in notifications:
+        timestamp = datetime.fromisoformat(
+            notification["fecha_hora"].replace("Z", "+00:00")
+        )
+        notification["fecha_visible"] = timestamp.strftime("%d/%m/%Y")
+        notification["hora_visible"] = timestamp.strftime("%H:%M")
+    return {
+        "notificaciones": notifications,
+        "no_leidas": sum(1 for item in notifications if item["leida"] == 0),
+    }
+
+
+def contar_notificaciones_no_leidas(
+    usuario_id: object,
+    database_path: Path | None = None,
+) -> int:
+    perfil = _resolver_alumno_propio(usuario_id, database_path)
+    return notificacion_alumno_repository.contar_no_leidas(
+        perfil["alumno_id"], database_path
+    )
+
+
+def marcar_notificacion_propia_leida(
+    usuario_id: object,
+    notificacion_id: object,
+    database_path: Path | None = None,
+) -> bool:
+    perfil = _resolver_alumno_propio(usuario_id, database_path)
+    identifier = _validar_id(notificacion_id, "notificación")
+    return notificacion_alumno_repository.marcar_leida(
+        perfil["alumno_id"], identifier, database_path
+    )
+
+
+def marcar_notificaciones_propias_leidas(
+    usuario_id: object,
+    database_path: Path | None = None,
+) -> int:
+    perfil = _resolver_alumno_propio(usuario_id, database_path)
+    return notificacion_alumno_repository.marcar_todas_leidas(
+        perfil["alumno_id"], database_path
     )
