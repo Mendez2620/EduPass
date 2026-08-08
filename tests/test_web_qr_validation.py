@@ -77,10 +77,24 @@ class TestWebQrValidation(unittest.TestCase):
             clock,
         )["token"]
 
-    def _post(self, token, movement_type="entrada"):
-        return self.client.post("/scanner/validar", data={
-            "tipo_movimiento": movement_type,
+    def _post(self, token, movement_type=None):
+        preview = self.client.post("/scanner/validar", data={
             "token": token,
+            "preview_submit": "Detectar movimiento",
+        })
+        parser = InputParser()
+        parser.feed(preview.get_data(as_text=True))
+        preview_id = parser.value("preview_id")
+        if preview_id is None:
+            return preview
+        return self.client.post("/scanner/validar", data={
+            "preview_id": preview_id,
+            "tipo_esperado": (
+                movement_type
+                if movement_type is not None
+                else parser.value("tipo_esperado")
+            ),
+            "confirm_submit": "1",
         })
 
     def _count(self, table):
@@ -203,8 +217,7 @@ class TestWebQrValidation(unittest.TestCase):
         response = self._post("")
         self.assertEqual(response.status_code, 400)
         self.assertIn(
-            "Selecciona un tipo de movimiento e ingresa un token QR válido "
-            "de 43 caracteres.",
+            "Ingresa un token QR válido de 43 caracteres.",
             response.get_data(as_text=True),
         )
 
@@ -256,12 +269,15 @@ class TestWebQrValidation(unittest.TestCase):
         body = self._post(token).get_data(as_text=True)
         self.assertNotIn("alumno_id", body)
 
-    def test_respuesta_no_muestra_matricula(self):
+    def test_preview_muestra_matricula_enmascarada(self):
         token = self._generate()
         self._login()
-        body = self._post(token).get_data(as_text=True)
+        body = self.client.post(
+            "/scanner/validar",
+            data={"token": token, "preview_submit": "1"},
+        ).get_data(as_text=True)
         self.assertNotIn("QR-0001", body)
-        self.assertNotIn("Matricula", body)
+        self.assertIn("***0001", body)
 
     def test_respuesta_no_muestra_ruta_sqlite(self):
         token = self._generate()
@@ -326,13 +342,12 @@ class TestWebQrValidation(unittest.TestCase):
         body = self.client.get("/scanner/validar").get_data(as_text=True)
         self.assertNotIn('name="movimiento"', body)
 
-    def test_existe_selector_entrada_salida(self):
+    def test_selector_entrada_salida_fue_eliminado(self):
         self._login()
         body = self.client.get("/scanner/validar").get_data(as_text=True)
-        self.assertIn("Entrada", body)
-        self.assertIn("Salida", body)
-        self.assertIn("<select", body)
-        self.assertIn('name="tipo_movimiento"', body)
+        self.assertNotIn("<select", body)
+        self.assertNotIn('name="tipo_movimiento"', body)
+        self.assertIn("Detectar movimiento", body)
 
     def test_resultado_de_negocio_usa_http_200(self):
         self._login()

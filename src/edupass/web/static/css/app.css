@@ -1059,6 +1059,66 @@ tbody tr:last-child td {
   color: #8d2e20;
 }
 
+.validation-result-advertencia {
+  background: var(--warning-bg);
+  border-left-color: #805600;
+}
+
+.validation-result-advertencia .validation-result-icon {
+  color: #805600;
+}
+
+.movement-preview {
+  margin-top: 22px;
+  padding: 22px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: 6px;
+}
+
+.movement-preview-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.movement-preview-data div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+.movement-preview-data dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.movement-preview-data dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 750;
+}
+
+.movement-detected-label {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.movement-detected {
+  display: block;
+  margin-bottom: 18px;
+  color: var(--brand-dark);
+  font-size: clamp(1.5rem, 6vw, 2.2rem);
+  letter-spacing: 0.04em;
+}
+
+.movement-confirm-form {
+  margin: 0;
+}
+
 .table-scroll {
   max-width: 100%;
   overscroll-behavior-inline: contain;
@@ -1261,5 +1321,13 @@ td,
   .camera-guide-corner {
     width: 38px;
     height: 38px;
+  }
+
+  .movement-preview-data {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .movement-confirm-form .button {
+    width: 100%;
   }
 }

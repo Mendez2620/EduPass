@@ -64,6 +64,22 @@ def _normalizar_tipo(tipo_movimiento: object) -> str:
     return tipo_normalizado
 
 
+def _validar_hash_token(token_hash: object) -> str:
+    if not isinstance(token_hash, str) or len(token_hash) != 64:
+        raise QRInvalidoError("Token invalido.")
+    try:
+        int(token_hash, 16)
+    except ValueError as exc:
+        raise QRInvalidoError("Token invalido.") from exc
+    return token_hash.lower()
+
+
+def _enmascarar_matricula(matricula: str) -> str:
+    if len(matricula) <= 4:
+        return "*" * len(matricula)
+    return ("*" * (len(matricula) - 4)) + matricula[-4:]
+
+
 def _validar_usuario_id(usuario_id: object) -> int:
     if (
         isinstance(usuario_id, bool)
@@ -123,6 +139,67 @@ def registrar_movimiento_con_token(
     result["mensaje"] = (
         "Entrada registrada correctamente."
         if tipo_normalizado == TIPO_MOVIMIENTO_ENTRADA
+        else "Salida registrada correctamente."
+    )
+    return result
+
+
+def previsualizar_movimiento_con_token(
+    token: str,
+    database_path: Path | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Valida y determina el tipo sin consumir el QR ni insertar movimientos."""
+    token_normalizado = _normalizar_token(token)
+    token_hash = calcular_hash_token(token_normalizado)
+    fecha_hora = serializar_utc(obtener_utc_actual(clock))
+    preview = movimiento_repository.previsualizar_con_token(
+        token_hash,
+        fecha_hora,
+        database_path,
+    )
+    return {
+        "token_hash": token_hash,
+        "alumno_nombre": preview["alumno_nombre"],
+        "matricula_enmascarada": _enmascarar_matricula(
+            preview["alumno_matricula"]
+        ),
+        "tipo_movimiento": preview["tipo_movimiento"],
+    }
+
+
+def confirmar_movimiento_automatico(
+    token_hash: str,
+    tipo_esperado: str,
+    usuario_id: int,
+    punto_plantel: str = PUNTO_PLANTEL_ACCESO_PRINCIPAL,
+    database_path: Path | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Recalcula el tipo en la transacción antes de consumir e insertar."""
+    hash_validado = _validar_hash_token(token_hash)
+    tipo_validado = _normalizar_tipo(tipo_esperado)
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    punto_normalizado = _normalizar_punto(punto_plantel)
+    fecha_hora = serializar_utc(obtener_utc_actual(clock))
+
+    movimiento = movimiento_repository.registrar_automatico_con_token(
+        hash_validado,
+        tipo_validado,
+        fecha_hora,
+        usuario_id_validado,
+        punto_normalizado,
+        database_path,
+    )
+    try:
+        result = {key: movimiento[key] for key in _RESULT_KEYS}
+    except (KeyError, TypeError) as exc:
+        raise RepositoryError(
+            "El repositorio devolvio un movimiento incompleto."
+        ) from exc
+    result["mensaje"] = (
+        "Entrada registrada correctamente."
+        if result["tipo_movimiento"] == TIPO_MOVIMIENTO_ENTRADA
         else "Salida registrada correctamente."
     )
     return result

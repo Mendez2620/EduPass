@@ -155,19 +155,22 @@ class RenovarCredencialForm(FlaskForm):
     submit = SubmitField("Renovar credencial")
 
 
-class ValidarTokenQRForm(FlaskForm):
-    tipo_movimiento = SelectField(
-        "Tipo de movimiento",
-        choices=[
-            ("", "Selecciona una opcion"),
-            ("entrada", "Entrada"),
-            ("salida", "Salida"),
-        ],
-        validators=[DataRequired()],
-    )
+class PrevisualizarMovimientoForm(FlaskForm):
     token = StringField(
         "Token QR",
         validators=[DataRequired(), Length(max=43)],
         render_kw={"autocomplete": "off"},
     )
-    submit = SubmitField("Registrar movimiento")
+    preview_submit = SubmitField("Detectar movimiento")
+
+
+class ConfirmarMovimientoForm(FlaskForm):
+    preview_id = HiddenField(
+        "Previsualización",
+        validators=[DataRequired(), Length(max=64)],
+    )
+    tipo_esperado = HiddenField(
+        "Tipo mostrado",
+        validators=[DataRequired(), Length(max=7)],
+    )
+    confirm_submit = SubmitField("Confirmar movimiento")

@@ -7,7 +7,6 @@
   }
 
   const submitButton = form.querySelector("[data-movement-submit]");
-  const movementSelect = form.querySelector("select[name='tipo_movimiento']");
   const tokenInput = form.querySelector("[data-token-input]");
   const startButton = document.querySelector("[data-camera-start]");
   const stopButton = document.querySelector("[data-camera-stop]");
@@ -85,10 +84,8 @@
     if (tokenInput) {
       tokenInput.value = token;
     }
-    setStatus("QR detectado. Confirma el movimiento.");
-    if (movementSelect && !movementSelect.value) {
-      movementSelect.focus();
-    } else if (submitButton) {
+    setStatus("QR detectado. Solicita la previsualización del movimiento.");
+    if (submitButton) {
       submitButton.focus();
     }
   };

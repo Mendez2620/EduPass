@@ -140,8 +140,8 @@ class TestWebUiResponsive(unittest.TestCase):
     def test_movement_result_has_text_icon_and_live_region(self):
         self.assertIn('class="validation-result-icon"', self.scanner_template)
         self.assertIn('aria-live="polite"', self.scanner_template)
-        self.assertIn('"✓" if result.estado == "valido" else "✕"', self.scanner_template)
-        self.assertIn("Movimiento registrado", self.scanner_template)
+        self.assertIn("✓ {{ result.tipo_movimiento|upper }} REGISTRADA", self.scanner_template)
+        self.assertIn("Movimiento rechazado", self.scanner_template)
 
     def test_camera_contract_and_manual_capture_are_preserved(self):
         self._login("scanner.ui@edupass.test")
@@ -166,9 +166,11 @@ class TestWebUiResponsive(unittest.TestCase):
         self.assertIn("Mi credencial", credential.get_data(as_text=True))
         self.assertIn("Mi historial", history.get_data(as_text=True))
 
-    def test_entry_exit_and_qr_logic_are_unchanged(self):
-        self.assertIn("tipo_movimiento", self.scanner_template)
-        self.assertIn("El movimiento se confirma manualmente", self.scanner_template)
+    def test_entry_exit_is_automatic_and_confirmation_remains_manual(self):
+        self.assertNotIn('name="tipo_movimiento"', self.scanner_template)
+        self.assertIn("confirm_form.hidden_tag()", self.scanner_template)
+        self.assertIn('name="confirm_submit"', self.scanner_template)
+        self.assertIn("confirmación sigue siendo manual", self.scanner_template)
         self.assertNotIn("data-camera-guide", self.scanner_js)
         self.assertNotIn("tokenPattern =", self.scanner_template)
 

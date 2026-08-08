@@ -28,6 +28,7 @@ from edupass.shared.errors import (
     AlumnoInactivoError,
     ConsultaSqlError,
     EduPassError,
+    EstadoMovimientoCambiadoError,
     QRInvalidoError,
     QRUtilizadoError,
     QRVencidoError,
@@ -134,6 +135,17 @@ def _validar_secuencia(
         )
 
 
+def _determinar_tipo(ultimo: dict[str, Any] | None) -> str:
+    """Determina el siguiente tipo usando la alternancia histórica."""
+    if ultimo is None:
+        return TIPO_MOVIMIENTO_ENTRADA
+    if ultimo["tipo_movimiento"] == TIPO_MOVIMIENTO_ENTRADA:
+        return TIPO_MOVIMIENTO_SALIDA
+    if ultimo["tipo_movimiento"] == TIPO_MOVIMIENTO_SALIDA:
+        return TIPO_MOVIMIENTO_ENTRADA
+    raise RepositoryError("El último movimiento contiene un tipo inválido.")
+
+
 def _fetch_one(
     file_name: str,
     parameters: tuple[Any, ...],
@@ -190,15 +202,17 @@ def _fetch_all(
             connection.close()
 
 
-def registrar_con_token(
+def _registrar_con_token(
     token_hash: str,
-    tipo_movimiento: str,
     fecha_hora: str,
     usuario_id: int,
     punto_plantel: str,
-    database_path: Path | None = None,
+    database_path: Path | None,
+    *,
+    tipo_solicitado: str | None = None,
+    tipo_esperado: str | None = None,
 ) -> dict[str, Any]:
-    """Consume el QR e inserta el movimiento en una sola transaccion."""
+    """Calcula, consume e inserta dentro de una sola transacción."""
     select_qr_query = _load_query(_SELECT_QR_FILE)
     select_user_query = _load_query(_SELECT_USER_FILE)
     select_last_query = _load_query(_SELECT_LAST_FILE)
@@ -230,7 +244,15 @@ def registrar_con_token(
         )
         cursors.append(last_cursor)
         last_row = _row_to_dict(last_cursor.fetchone())
-        _validar_secuencia(last_row, tipo_movimiento)
+        if tipo_esperado is None:
+            if tipo_solicitado is None:
+                raise RepositoryError("No se indicó el modo de registro.")
+            tipo_movimiento = tipo_solicitado
+            _validar_secuencia(last_row, tipo_movimiento)
+        else:
+            tipo_movimiento = _determinar_tipo(last_row)
+            if tipo_movimiento != tipo_esperado:
+                raise EstadoMovimientoCambiadoError(tipo_movimiento)
 
         consume_cursor = connection.execute(
             consume_qr_query,
@@ -282,6 +304,88 @@ def registrar_con_token(
     except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
         _rollback(connection)
         raise RepositoryError("No se pudo registrar el movimiento.") from exc
+    finally:
+        for cursor in cursors:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def registrar_con_token(
+    token_hash: str,
+    tipo_movimiento: str,
+    fecha_hora: str,
+    usuario_id: int,
+    punto_plantel: str,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Conserva el contrato histórico de registro con secuencia validada."""
+    return _registrar_con_token(
+        token_hash,
+        fecha_hora,
+        usuario_id,
+        punto_plantel,
+        database_path,
+        tipo_solicitado=tipo_movimiento,
+    )
+
+
+def registrar_automatico_con_token(
+    token_hash: str,
+    tipo_esperado: str,
+    fecha_hora: str,
+    usuario_id: int,
+    punto_plantel: str,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Recalcula el tipo y registra atómicamente si coincide con el preview."""
+    return _registrar_con_token(
+        token_hash,
+        fecha_hora,
+        usuario_id,
+        punto_plantel,
+        database_path,
+        tipo_esperado=tipo_esperado,
+    )
+
+
+def previsualizar_con_token(
+    token_hash: str,
+    fecha_hora: str,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Valida el QR y determina el siguiente tipo sin escribir en SQLite."""
+    select_qr_query = _load_query(_SELECT_QR_FILE)
+    select_last_query = _load_query(_SELECT_LAST_FILE)
+    connection = None
+    cursors: list[sqlite3.Cursor] = []
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        qr_cursor = connection.execute(select_qr_query, (token_hash,))
+        cursors.append(qr_cursor)
+        qr_row = _row_to_dict(qr_cursor.fetchone())
+        classification = clasificar_fila_qr(qr_row, fecha_hora)
+        _raise_for_qr(classification)
+
+        last_cursor = connection.execute(
+            select_last_query,
+            (classification.alumno_id,),
+        )
+        cursors.append(last_cursor)
+        ultimo = _row_to_dict(last_cursor.fetchone())
+        return {
+            "alumno_id": classification.alumno_id,
+            "alumno_nombre": qr_row["alumno_nombre"],
+            "alumno_matricula": qr_row["alumno_matricula"],
+            "tipo_movimiento": _determinar_tipo(ultimo),
+        }
+    except EduPassError:
+        raise
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        raise RepositoryError(
+            "No se pudo previsualizar el movimiento."
+        ) from exc
     finally:
         for cursor in cursors:
             cursor.close()

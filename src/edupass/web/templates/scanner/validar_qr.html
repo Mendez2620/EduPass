@@ -3,13 +3,13 @@
 <section class="page-heading">
   <p class="eyebrow">Personal de escaneo</p>
   <h1>Registrar movimiento</h1>
-  <p>Selecciona Entrada o Salida. Puedes detectar el token mediante la cámara o usar la captura manual.</p>
+  <p>Detecta el QR mediante la cámara o captura el token manualmente. EduPass determinará el movimiento antes de pedir confirmación.</p>
 </section>
 
 <section class="camera-panel" aria-labelledby="camera-title">
   <div>
     <h2 id="camera-title">Escanear mediante cámara</h2>
-    <p>La cámara sólo captura el token QR. El movimiento se confirma manualmente en el formulario.</p>
+    <p>La cámara sólo captura el token QR. La previsualización no registra el movimiento y la confirmación sigue siendo manual.</p>
   </div>
   <div class="camera-controls">
     <button class="button button-primary" type="button" data-camera-start>Activar cámara</button>
@@ -29,17 +29,10 @@
 </section>
 
 <section class="validation-panel" aria-labelledby="manual-validation-title">
-  <h2 id="manual-validation-title">Captura manual y confirmación</h2>
-  <p>Si no hay cámara, permiso, HTTPS o JavaScript, pega el token manualmente y confirma el movimiento.</p>
+  <h2 id="manual-validation-title">Captura manual y detección</h2>
+  <p>Si no hay cámara, permiso, HTTPS o JavaScript, pega el token y solicita la misma previsualización segura.</p>
   <form class="movement-form" method="post" action="{{ url_for('scanner.validar_qr') }}" novalidate data-movement-form>
     {{ form.hidden_tag() }}
-    <div class="field">
-      {{ form.tipo_movimiento.label }}
-      {{ form.tipo_movimiento(class_="movement-select") }}
-      {% for error in form.tipo_movimiento.errors %}
-        <p class="field-error">{{ error }}</p>
-      {% endfor %}
-    </div>
     <div class="field">
       {{ form.token.label }}
       {{ form.token(class_="manual-token", maxlength="43", autocomplete="off", spellcheck="false", **{"data-token-input": ""}) }}
@@ -47,14 +40,37 @@
         <p class="field-error">{{ error }}</p>
       {% endfor %}
     </div>
-    <button class="button button-primary" type="submit" data-movement-submit>Registrar movimiento</button>
+    {{ form.preview_submit(class_="button button-primary", **{"data-movement-submit": ""}) }}
   </form>
+
+  {% if preview and confirm_form %}
+    <section class="movement-preview" aria-labelledby="movement-preview-title" role="status" aria-live="polite">
+      <p class="eyebrow">QR detectado</p>
+      <h2 id="movement-preview-title">Confirma el movimiento</h2>
+      <dl class="movement-preview-data">
+        <div><dt>Alumno</dt><dd>{{ preview.alumno_nombre }}</dd></div>
+        <div><dt>Matrícula</dt><dd>{{ preview.matricula_enmascarada }}</dd></div>
+      </dl>
+      <p class="movement-detected-label">Movimiento detectado</p>
+      <strong class="movement-detected movement-detected-{{ preview.tipo_movimiento }}">{{ preview.tipo_movimiento|upper }}</strong>
+      <form method="post" action="{{ url_for('scanner.validar_qr') }}" class="movement-confirm-form">
+        {{ confirm_form.hidden_tag() }}
+        <button class="button button-primary" type="submit" name="confirm_submit" value="1">Confirmar {{ preview.tipo_movimiento }}</button>
+      </form>
+    </section>
+  {% endif %}
 
   {% if result %}
     <div class="validation-result validation-result-{{ result.estado }}" role="status" aria-live="polite">
-      <span class="validation-result-icon" aria-hidden="true">{{ "✓" if result.estado == "valido" else "✕" }}</span>
+      <span class="validation-result-icon" aria-hidden="true">{% if result.estado == "valido" %}✓{% elif result.estado == "advertencia" %}⚠{% else %}✕{% endif %}</span>
       <div>
-        <strong>{{ "Movimiento registrado" if result.estado == "valido" else "Movimiento rechazado" }}</strong>
+        {% if result.estado == "valido" %}
+          <strong>✓ {{ result.tipo_movimiento|upper }} REGISTRADA</strong>
+        {% elif result.estado == "advertencia" %}
+          <strong>Movimiento actualizado</strong>
+        {% else %}
+          <strong>Movimiento rechazado</strong>
+        {% endif %}
         <p>{{ result.mensaje }}</p>
       </div>
     </div>

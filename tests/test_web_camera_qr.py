@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -101,9 +102,10 @@ class TestWebCameraQr(unittest.TestCase):
     def test_12_captura_manual_presente(self):
         self._login(); self.assertIn("Captura manual", self._body())
 
-    def test_13_selector_entrada_salida(self):
+    def test_13_selector_entrada_salida_eliminado(self):
         self._login(); body = self._body()
-        self.assertIn("Entrada", body); self.assertIn("Salida", body)
+        self.assertNotIn('name="tipo_movimiento"', body)
+        self.assertNotIn("<select", body)
 
     def test_14_csrf_capable_form_present(self):
         csrf_app = create_app({
@@ -236,16 +238,28 @@ class TestWebCameraQr(unittest.TestCase):
             self.alumno["alumno_id"], self.database_path
         )["token"]
         self._login()
+        preview = self.client.post("/scanner/validar", data={
+            "token": token, "preview_submit": "1"
+        })
+        body = preview.get_data(as_text=True)
+        preview_id = re.search(
+            r'name="preview_id"[^>]*value="([^"]+)"', body
+        ).group(1)
+        tipo = re.search(
+            r'name="tipo_esperado"[^>]*value="([^"]+)"', body
+        ).group(1)
         response = self.client.post("/scanner/validar", data={
-            "tipo_movimiento": "entrada", "token": token
+            "preview_id": preview_id,
+            "tipo_esperado": tipo,
+            "confirm_submit": "1",
         })
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Movimiento registrado", response.get_data(as_text=True))
+        self.assertIn("ENTRADA REGISTRADA", response.get_data(as_text=True))
 
     def test_48_camera_error_does_not_change_backend_errors(self):
         self._login()
         response = self.client.post("/scanner/validar", data={
-            "tipo_movimiento": "entrada", "token": "Z" * 43
+            "token": "Z" * 43, "preview_submit": "1"
         })
         self.assertEqual(response.status_code, 200)
         self.assertIn("Token inválido.", response.get_data(as_text=True))
@@ -260,7 +274,7 @@ class TestWebCameraQr(unittest.TestCase):
         route = (SRC_PATH / "edupass" / "web" / "scanner_routes.py").read_text(encoding="utf-8")
         service = (SRC_PATH / "edupass" / "modules" / "movimientos" / "movimientos_service.py").read_text(encoding="utf-8")
         repository = (SRC_PATH / "edupass" / "persistence" / "repositories" / "movimiento_repository.py").read_text(encoding="utf-8")
-        self.assertIn("registrar_movimiento_con_token", route)
+        self.assertIn("confirmar_movimiento_automatico", route)
         self.assertIn("BEGIN IMMEDIATE", repository)
         self.assertNotIn("getUserMedia", route)
 

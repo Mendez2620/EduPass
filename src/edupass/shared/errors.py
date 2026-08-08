@@ -100,6 +100,16 @@ class SecuenciaMovimientoError(MovimientoError):
     """Error causado por una secuencia de entrada o salida invalida."""
 
 
+class EstadoMovimientoCambiadoError(MovimientoError):
+    """Error causado cuando el tipo cambió antes de la confirmación."""
+
+    def __init__(self, tipo_movimiento_actual: str):
+        super().__init__(
+            "El estado del alumno cambió. Confirma el movimiento actualizado."
+        )
+        self.tipo_movimiento_actual = tipo_movimiento_actual
+
+
 class UsuarioEscanerInvalidoError(MovimientoError):
     """Error causado por un responsable inexistente o no autorizado."""
 
