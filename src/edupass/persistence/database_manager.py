@@ -94,6 +94,15 @@ def initialize_database(
     try:
         connection = get_connection(db_path)
         connection.executescript(schema_sql)
+        user_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(usuarios);").fetchall()
+        }
+        if "requiere_cambio_password" not in user_columns:
+            connection.execute(
+                "ALTER TABLE usuarios ADD COLUMN "
+                "requiere_cambio_password INTEGER NOT NULL DEFAULT 0;"
+            )
         connection.commit()
     except sqlite3.Error as exc:
         if connection is not None:

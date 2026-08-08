@@ -50,7 +50,6 @@ class TestAltaIntegradaAlumnoService(unittest.TestCase):
             "fotografia": None,
             "alumno_estado": "activo",
             "correo": "alumna.integrada@edupass.test",
-            "password": self.PASSWORD,
             "cuenta_estado": "activo",
             "actor_usuario_id": self.admin["usuario_id"],
             "database_path": self.database_path,
@@ -66,14 +65,14 @@ class TestAltaIntegradaAlumnoService(unittest.TestCase):
             connection.close()
 
     def test_crea_alumno_usuario_y_vinculo_con_rol_fijo(self):
-        account = self._create()
+        account, _temporary = self._create()
         self.assertEqual(account["rol_nombre"], "alumno")
         self.assertEqual(account["usuario_estado"], "activo")
         self.assertEqual(self._count("alumnos"), 1)
         self.assertEqual(self._count("usuario_alumno"), 1)
 
     def test_password_se_almacena_solo_como_hash(self):
-        account = self._create()
+        account, temporary = self._create()
         connection = database_manager.get_connection(self.database_path)
         try:
             stored = connection.execute(
@@ -82,12 +81,12 @@ class TestAltaIntegradaAlumnoService(unittest.TestCase):
             ).fetchone()[0]
         finally:
             connection.close()
-        self.assertNotEqual(stored, self.PASSWORD)
-        self.assertTrue(check_password_hash(stored, self.PASSWORD))
+        self.assertNotEqual(stored, temporary)
+        self.assertTrue(check_password_hash(stored, temporary))
         self.assertNotIn("password_hash", account)
 
     def test_permite_cuenta_inactiva(self):
-        account = self._create(cuenta_estado="inactivo")
+        account, _temporary = self._create(cuenta_estado="inactivo")
         self.assertEqual(account["usuario_estado"], "inactivo")
 
     def test_rechaza_cuenta_activa_para_alumno_inactivo_sin_escribir(self):

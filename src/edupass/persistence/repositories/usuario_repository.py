@@ -33,6 +33,7 @@ _INSERT_FILE = "insert_usuario.sql"
 _UPDATE_DATA_FILE = "update_usuario_datos.sql"
 _UPDATE_STATE_FILE = "update_usuario_estado.sql"
 _UPDATE_PASSWORD_FILE = "update_usuario_password.sql"
+_UPDATE_PASSWORD_REQUIREMENT_FILE = "update_usuario_password_requirement.sql"
 _COUNT_ACTIVE_BY_ROLE_FILE = "count_usuarios_activos_by_rol.sql"
 _SAFE_USER_FIELDS = (
     "usuario_id",
@@ -329,6 +330,45 @@ def actualizar_password(
         (hash_validado, usuario_id_validado),
         database_path,
     )
+
+
+def actualizar_password_y_requerimiento(
+    usuario_id: object,
+    password_hash: object,
+    requiere_cambio_password: object,
+    database_path: Path | None = None,
+) -> bool:
+    """Actualiza hash y requerimiento en una sola transaccion."""
+    identifier = _validar_usuario_id(usuario_id)
+    hash_validado = _validar_password_hash(password_hash)
+    if requiere_cambio_password not in (0, 1):
+        raise RepositoryError("El indicador de cambio no es valido.")
+    connection = None
+    cursor = None
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.execute("BEGIN IMMEDIATE;")
+        cursor = connection.execute(
+            _load_query(_UPDATE_PASSWORD_REQUIREMENT_FILE),
+            (hash_validado, requiere_cambio_password, identifier),
+        )
+        if cursor.rowcount < 1:
+            raise UsuarioNoEncontradoError(
+                "No se encontro el usuario solicitado."
+            )
+        connection.commit()
+        return True
+    except EduPassError:
+        _rollback(connection)
+        raise
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        _rollback(connection)
+        raise RepositoryError("No se pudo actualizar la contrasena.") from exc
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
 
 
 def contar_activos_por_rol(

@@ -127,6 +127,7 @@ class TestUsuarioAlumnoRepository(unittest.TestCase):
             {
                 "usuario_alumno_id", "usuario_id", "alumno_id",
                 "usuario_nombre", "correo", "usuario_estado", "rol_nombre",
+                "requiere_cambio_password",
                 "alumno_nombre", "matricula", "grado", "grupo", "alumno_estado",
             },
         )
@@ -688,7 +689,10 @@ class TestCuentaAlumnoManagementRepository(unittest.TestCase):
         updated = usuario_alumno_repository.actualizar_password_cuenta(
             account["usuario_id"], new_hash, self.admin_id, self.database_path
         )
-        self.assertEqual(updated, account)
+        self.assertEqual(updated["usuario_alumno_id"], account["usuario_alumno_id"])
+        self.assertEqual(updated["requiere_cambio_password"], 1)
+        for field in ("correo", "rol_nombre", "alumno_id"):
+            self.assertEqual(updated[field], account[field])
         connection = database_manager.get_connection(self.database_path)
         try:
             stored = connection.execute("SELECT password_hash FROM usuarios WHERE usuario_id = ?;", (account["usuario_id"],)).fetchone()[0]

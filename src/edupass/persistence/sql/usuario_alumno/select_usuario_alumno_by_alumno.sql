@@ -5,6 +5,7 @@ SELECT
     usuarios.nombre AS usuario_nombre,
     usuarios.correo,
     usuarios.estado AS usuario_estado,
+    usuarios.requiere_cambio_password,
     roles.nombre AS rol_nombre,
     alumnos.nombre AS alumno_nombre,
     alumnos.matricula,

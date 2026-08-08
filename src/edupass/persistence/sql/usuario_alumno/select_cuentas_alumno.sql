@@ -9,6 +9,7 @@ SELECT
     alumnos.estado AS alumno_estado,
     usuarios.correo,
     usuarios.estado AS usuario_estado,
+    usuarios.requiere_cambio_password,
     roles.nombre AS rol_nombre
 FROM usuario_alumno
 INNER JOIN usuarios ON usuarios.usuario_id = usuario_alumno.usuario_id

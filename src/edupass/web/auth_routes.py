@@ -36,6 +36,11 @@ def _dashboard_endpoint(role_name: str) -> str | None:
 
 
 def _redirect_authenticated_user():
+    if (
+        current_user.rol_nombre == ROL_ALUMNO
+        and current_user.requiere_cambio_password == 1
+    ):
+        return redirect(url_for("alumno.cambio_password_obligatorio"))
     endpoint = _dashboard_endpoint(current_user.rol_nombre)
     if endpoint is not None:
         return redirect(url_for(endpoint))
@@ -76,6 +81,13 @@ def login():
         else:
             login_user(user)
             session.permanent = True
+            if (
+                user.rol_nombre == ROL_ALUMNO
+                and user.requiere_cambio_password == 1
+            ):
+                return redirect(
+                    url_for("alumno.cambio_password_obligatorio")
+                )
             endpoint = _dashboard_endpoint(user.rol_nombre)
             if endpoint is None:
                 logout_user()

@@ -195,21 +195,31 @@ class TestWebCuentasAlumno(unittest.TestCase):
         self.assertEqual(result["rol_nombre"], account["rol_nombre"])
         self.assertEqual(result["usuario_estado"], account["usuario_estado"])
 
-    def test_password_reset_is_separate_and_never_echoes_password(self):
+    def test_password_regeneration_shows_temporary_once_and_sets_flag(self):
         account = self._create_account()
         self._login()
         page = self.client.get(f'/admin/cuentas-alumnos/{account["usuario_id"]}/password')
         self.assertEqual(page.status_code, 200)
         secret = "NuevaWebClave123!"
-        response = self.client.post(f'/admin/cuentas-alumnos/{account["usuario_id"]}/password', data={"password": secret, "confirmar_password": secret})
-        self.assertEqual(response.status_code, 302)
-        self.assertNotIn(secret, response.get_data(as_text=True))
+        with patch.object(
+            cuentas_alumno_service,
+            "generar_password_temporal",
+            return_value=secret,
+        ):
+            response = self.client.post(
+                f'/admin/cuentas-alumnos/{account["usuario_id"]}/password',
+                data={},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(secret, response.get_data(as_text=True))
+        self.assertIn("no-store", response.headers["Cache-Control"])
         connection = database_manager.get_connection(self.database_path)
         try:
-            stored = connection.execute("SELECT password_hash FROM usuarios WHERE usuario_id = ?;", (account["usuario_id"],)).fetchone()[0]
+            stored, flag = connection.execute("SELECT password_hash, requiere_cambio_password FROM usuarios WHERE usuario_id = ?;", (account["usuario_id"],)).fetchone()
         finally:
             connection.close()
         self.assertTrue(check_password_hash(stored, secret))
+        self.assertEqual(flag, 1)
 
     def test_activate_deactivate_are_post_prg_and_preserve_link(self):
         account = self._create_account()

@@ -349,6 +349,7 @@ class TestAuthService(unittest.TestCase):
                 "estado",
                 "rol_id",
                 "rol_nombre",
+                "requiere_cambio_password",
             },
         )
 

@@ -159,6 +159,7 @@ class TestUsuarioRepository(unittest.TestCase):
                 "nombre",
                 "correo",
                 "password_hash",
+                "requiere_cambio_password",
                 "estado",
                 "rol_id",
                 "rol_nombre",

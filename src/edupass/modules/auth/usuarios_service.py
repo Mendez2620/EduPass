@@ -43,6 +43,7 @@ _SAFE_USER_FIELDS = (
     "estado",
     "rol_id",
     "rol_nombre",
+    "requiere_cambio_password",
 )
 
 
@@ -83,7 +84,39 @@ def _validar_usuario_id(usuario_id: object) -> int:
 
 
 def _usuario_seguro(usuario: dict[str, Any]) -> dict[str, Any]:
-    return {campo: usuario[campo] for campo in _SAFE_USER_FIELDS}
+    return {campo: usuario.get(campo, 0) for campo in _SAFE_USER_FIELDS}
+
+
+def cambiar_password_obligatorio_alumno(
+    usuario_id: object,
+    password_actual: object,
+    password_nuevo: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Verifica la temporal y reemplaza hash y flag atomically."""
+    identifier = _validar_usuario_id(usuario_id)
+    actual = _validar_password_creacion(password_actual)
+    nuevo = _validar_password_creacion(password_nuevo)
+    usuario = usuario_repository.obtener_por_id(identifier, database_path)
+    if (
+        usuario is None
+        or usuario.get("rol_nombre") != ROL_ALUMNO
+        or usuario.get("requiere_cambio_password") != 1
+    ):
+        raise AuthorizationError("El cambio obligatorio no esta disponible.")
+    if not check_password_hash(usuario["password_hash"], actual):
+        raise AuthenticationError("La contrasena temporal no es correcta.")
+    if check_password_hash(usuario["password_hash"], nuevo):
+        raise ValidationError(
+            "La nueva contrasena debe ser diferente de la temporal."
+        )
+    usuario_repository.actualizar_password_y_requerimiento(
+        identifier, generate_password_hash(nuevo), 0, database_path
+    )
+    actualizado = usuario_repository.obtener_por_id(identifier, database_path)
+    if actualizado is None:
+        raise UsuarioNoEncontradoError("No se encontro el usuario solicitado.")
+    return _usuario_seguro(actualizado)
 
 
 def _authentication_error() -> AuthenticationError:

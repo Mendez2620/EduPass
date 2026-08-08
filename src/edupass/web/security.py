@@ -26,6 +26,7 @@ class SessionUser(UserMixin):
         estado: str,
         rol_id: int,
         rol_nombre: str,
+        requiere_cambio_password: int = 0,
     ) -> None:
         self.usuario_id = usuario_id
         self.nombre = nombre
@@ -33,6 +34,7 @@ class SessionUser(UserMixin):
         self.estado = estado
         self.rol_id = rol_id
         self.rol_nombre = rol_nombre
+        self.requiere_cambio_password = requiere_cambio_password
 
     @classmethod
     def from_service_data(cls, data: dict[str, Any]) -> "SessionUser":
@@ -44,6 +46,7 @@ class SessionUser(UserMixin):
             estado=data["estado"],
             rol_id=data["rol_id"],
             rol_nombre=data["rol_nombre"],
+            requiere_cambio_password=data.get("requiere_cambio_password", 0),
         )
 
     def get_id(self) -> str:
@@ -58,6 +61,7 @@ class SessionUser(UserMixin):
             "estado": self.estado,
             "rol_id": self.rol_id,
             "rol_nombre": self.rol_nombre,
+            "requiere_cambio_password": self.requiere_cambio_password,
         }
 
 

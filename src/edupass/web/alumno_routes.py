@@ -8,16 +8,21 @@ from flask import (
     Blueprint,
     current_app,
     make_response,
+    redirect,
     render_template,
     request,
+    url_for,
 )
 from flask_login import current_user
 
 from edupass.modules.alumnos import alumno_portal_service
+from edupass.modules.auth import usuarios_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
 from edupass.shared.constants import ROL_ALUMNO
 from edupass.shared.errors import (
     EduPassError,
+    AuthenticationError,
+    AuthorizationError,
     MovimientoNoEncontradoError,
     RepositoryError,
     ValidationError,
@@ -25,6 +30,7 @@ from edupass.shared.errors import (
 from edupass.web.forms import (
     AlumnoGenerarCredencialForm,
     AlumnoRenovarCredencialForm,
+    CambioPasswordObligatorioForm,
 )
 from edupass.web.security import role_required
 
@@ -44,6 +50,64 @@ _CREDENTIAL_ENDPOINTS = {
     "alumno.generar_credencial",
     "alumno.renovar_credencial",
 }
+
+
+@alumno_blueprint.before_request
+def _require_completed_password_change():
+    if (
+        current_user.is_authenticated
+        and current_user.rol_nombre == ROL_ALUMNO
+        and current_user.requiere_cambio_password == 1
+        and request.endpoint != "alumno.cambio_password_obligatorio"
+    ):
+        return redirect(url_for("alumno.cambio_password_obligatorio"))
+
+
+@alumno_blueprint.route("/cambiar-password", methods=["GET", "POST"])
+@role_required(ROL_ALUMNO)
+def cambio_password_obligatorio():
+    if current_user.requiere_cambio_password != 1:
+        return redirect(url_for("alumno.dashboard"))
+    form = CambioPasswordObligatorioForm()
+    error_message = None
+    status = 200
+    if form.is_submitted():
+        if not form.validate_on_submit():
+            error_message = "Revisa los datos de la contraseña."
+            status = 400
+        else:
+            try:
+                usuarios_service.cambiar_password_obligatorio_alumno(
+                    current_user.usuario_id,
+                    form.password_actual.data,
+                    form.password_nuevo.data,
+                    current_app.config["DATABASE_PATH"],
+                )
+            except AuthenticationError:
+                error_message = "La contraseña temporal no es correcta."
+                status = 400
+            except ValidationError as exc:
+                error_message = str(exc)
+                status = 400
+            except AuthorizationError:
+                return redirect(url_for("alumno.dashboard"))
+            except RepositoryError:
+                return _technical_error(
+                    "alumno/cambio_password_obligatorio.html",
+                    form=form,
+                    title="Cambiar contraseña",
+                )
+            else:
+                return redirect(url_for("alumno.dashboard"))
+    return (
+        render_template(
+            "alumno/cambio_password_obligatorio.html",
+            form=form,
+            error_message=error_message,
+            title="Cambiar contraseña",
+        ),
+        status,
+    )
 
 
 @alumno_blueprint.after_request

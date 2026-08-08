@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import secrets
 from typing import Any
 
 from werkzeug.security import generate_password_hash
@@ -34,7 +35,14 @@ _SAFE_ACCOUNT_FIELDS = (
     "grado",
     "grupo",
     "alumno_estado",
+    "requiere_cambio_password",
 )
+
+
+def generar_password_temporal() -> str:
+    """Genera una clave temporal criptograficamente segura."""
+    password = secrets.token_urlsafe(18)
+    return _validar_password(password)
 
 
 def _validar_id(value: object, entity: str) -> int:
@@ -142,11 +150,10 @@ def crear_alumno_con_cuenta(
     fotografia: object,
     alumno_estado: object,
     correo: object,
-    password: object,
     cuenta_estado: object,
     actor_usuario_id: object,
     database_path: Path | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], str]:
     """Valida y crea alumno, cuenta y vinculo de forma atomica."""
     actor_id = _validar_id(actor_usuario_id, "usuario actor")
     nombre_normalizado = alumnos_service._normalizar_texto_obligatorio(
@@ -162,7 +169,7 @@ def crear_alumno_con_cuenta(
     fotografia_normalizada = alumnos_service._normalizar_fotografia(fotografia)
     alumno_estado_normalizado = alumnos_service._normalizar_estado(alumno_estado)
     correo_normalizado = _normalizar_correo(correo)
-    password_validado = _validar_password(password)
+    password_temporal = generar_password_temporal()
     if not isinstance(cuenta_estado, str):
         raise ValidationError("El estado de la cuenta no es valido.")
     cuenta_estado_normalizado = cuenta_estado.strip().lower()
@@ -184,12 +191,12 @@ def crear_alumno_con_cuenta(
         fotografia_normalizada,
         alumno_estado_normalizado,
         correo_normalizado,
-        generate_password_hash(password_validado),
+        generate_password_hash(password_temporal),
         cuenta_estado_normalizado,
         actor_id,
         database_path,
     )
-    return _cuenta_segura(account)
+    return _cuenta_segura(account), password_temporal
 
 
 def editar_cuenta_alumno(
@@ -209,24 +216,24 @@ def editar_cuenta_alumno(
     )
 
 
-def restablecer_password_cuenta_alumno(
+def generar_password_temporal_cuenta_alumno(
     usuario_id: object,
-    password: object,
     actor_usuario_id: object,
     database_path: Path | None = None,
-) -> dict[str, Any]:
-    """Reemplaza exclusivamente el hash de la cuenta alumno."""
+) -> tuple[dict[str, Any], str]:
+    """Genera temporal, actualiza hash+flag y devuelve la clave una vez."""
     identifier = _validar_id(usuario_id, "usuario")
     actor_id = _validar_id(actor_usuario_id, "usuario actor")
-    validated_password = _validar_password(password)
-    return _cuenta_segura(
+    password_temporal = generar_password_temporal()
+    account = _cuenta_segura(
         usuario_alumno_repository.actualizar_password_cuenta(
             identifier,
-            generate_password_hash(validated_password),
+            generate_password_hash(password_temporal),
             actor_id,
             database_path,
         )
     )
+    return account, password_temporal
 
 
 def activar_cuenta_alumno(

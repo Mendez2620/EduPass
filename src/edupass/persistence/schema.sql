@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre TEXT NOT NULL,
     correo TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    requiere_cambio_password INTEGER NOT NULL DEFAULT 0,
     estado TEXT NOT NULL,
     rol_id INTEGER NOT NULL,
     FOREIGN KEY (rol_id) REFERENCES roles (rol_id)

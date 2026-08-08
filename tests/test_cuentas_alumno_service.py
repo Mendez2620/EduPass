@@ -129,10 +129,19 @@ class TestCuentasAlumnoService(unittest.TestCase):
     def test_password_reset_rejects_old_and_accepts_new(self):
         account = self._create()
         old_hash = self._stored_hash(account["usuario_id"])
-        cuentas_alumno_service.restablecer_password_cuenta_alumno(
-            account["usuario_id"], "NuevaClave123!",
-            self.admin["usuario_id"], self.database_path,
-        )
+        with patch.object(
+            cuentas_alumno_service,
+            "generar_password_temporal",
+            return_value="NuevaClave123!",
+        ):
+            updated, temporary = (
+                cuentas_alumno_service.generar_password_temporal_cuenta_alumno(
+                    account["usuario_id"],
+                    self.admin["usuario_id"], self.database_path,
+                )
+            )
+        self.assertEqual(temporary, "NuevaClave123!")
+        self.assertEqual(updated["requiere_cambio_password"], 1)
         new_hash = self._stored_hash(account["usuario_id"])
         self.assertNotEqual(old_hash, new_hash)
         self.assertFalse(check_password_hash(new_hash, self.PASSWORD))

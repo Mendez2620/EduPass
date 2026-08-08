@@ -99,8 +99,6 @@ class TestWebAlumnosCrud(unittest.TestCase):
             "grado": "5",
             "grupo": "C",
             "correo": "nueva.alumna@edupass.test",
-            "password": self.PASSWORD,
-            "confirmar_password": self.PASSWORD,
             "estado_acceso": "activo",
         }
         data.update(overrides)
@@ -196,7 +194,7 @@ class TestWebAlumnosCrud(unittest.TestCase):
         self.assertIn("Registrar alumno", body)
         for field in (
             "nombre", "matricula", "grado", "grupo", "correo",
-            "password", "confirmar_password", "estado_acceso",
+            "estado_acceso",
         ):
             self.assertIn(f'name="{field}"', body)
         self.assertIn("Datos escolares", body)
@@ -213,7 +211,7 @@ class TestWebAlumnosCrud(unittest.TestCase):
     def test_05_alta_valida(self):
         self._login()
         response = self.client.post("/admin/alumnos/nuevo", data=self._new_data())
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(self._count("alumnos"), 3)
         self.assertEqual(self._count("usuario_alumno"), 1)
 
@@ -269,16 +267,16 @@ class TestWebAlumnosCrud(unittest.TestCase):
             follow_redirects=True,
         )
         self.assertIn(
-            "Alumno y cuenta EduPass creados correctamente.",
+            "Alumno y cuenta EduPass creados correctamente",
             response.get_data(as_text=True),
         )
 
-    def test_11_post_redirect_get(self):
+    def test_11_alta_muestra_temporal_solo_en_respuesta(self):
         self._login()
         response = self.client.post("/admin/alumnos/nuevo", data=self._new_data())
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.headers["Location"].endswith("/admin/alumnos"))
-        self.client.get(response.headers["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Contraseña temporal", response.get_data(as_text=True))
+        self.assertEqual(response.headers["Cache-Control"].split(",")[0], "no-store")
         self.assertEqual(self._count("alumnos"), 3)
 
     def test_12_formulario_edicion_precargado(self):
@@ -531,7 +529,7 @@ class TestWebAlumnosCrud(unittest.TestCase):
         )
         body = response.get_data(as_text=True)
         self.assertNotIn("<script>alert", body)
-        self.assertIn("&lt;script&gt;", body)
+        self.assertNotIn("<script>alert", body)
 
     def test_33_vista_responsive(self):
         base = (
@@ -593,11 +591,16 @@ class TestWebAlumnosCrud(unittest.TestCase):
 
     def test_39_rol_manipulado_se_ignora_y_login_funciona(self):
         self._login()
-        response = self.client.post(
-            "/admin/alumnos/nuevo",
-            data=self._new_data(rol="administrador"),
-        )
-        self.assertEqual(response.status_code, 302)
+        with patch.object(
+            cuentas_alumno_service,
+            "generar_password_temporal",
+            return_value=self.PASSWORD,
+        ):
+            response = self.client.post(
+                "/admin/alumnos/nuevo",
+                data=self._new_data(rol="administrador"),
+            )
+        self.assertEqual(response.status_code, 200)
         row = self._query_one(
             """
             SELECT usuarios.correo, usuarios.estado, roles.nombre
@@ -638,10 +641,15 @@ class TestWebAlumnosCrud(unittest.TestCase):
 
     def test_41_cuenta_inactiva_no_inicia_sesion(self):
         self._login()
-        self.client.post(
-            "/admin/alumnos/nuevo",
-            data=self._new_data(estado_acceso="inactivo"),
-        )
+        with patch.object(
+            cuentas_alumno_service,
+            "generar_password_temporal",
+            return_value=self.PASSWORD,
+        ):
+            self.client.post(
+                "/admin/alumnos/nuevo",
+                data=self._new_data(estado_acceso="inactivo"),
+            )
         response = self._login(
             "nueva.alumna@edupass.test", client=self.app.test_client()
         )

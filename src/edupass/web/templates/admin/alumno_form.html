@@ -54,16 +54,6 @@
             {{ form.correo(autocomplete="email", spellcheck="false") }}
             {% for error in form.correo.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="field">
-            {{ form.password.label }}
-            {{ form.password(autocomplete="new-password") }}
-            {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
-          </div>
-          <div class="field">
-            {{ form.confirmar_password.label }}
-            {{ form.confirmar_password(autocomplete="new-password") }}
-            {% for error in form.confirmar_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
-          </div>
           <div class="field student-form-wide">
             {{ form.estado_acceso.label }}
             {{ form.estado_acceso() }}

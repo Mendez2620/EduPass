@@ -49,6 +49,7 @@ _STUDENTS_SQL_DIRECTORY = _SQL_DIRECTORY.parent / "alumnos"
 _INSERT_STUDENT_FILE = "insert_alumno.sql"
 _UPDATE_USER_DATA_FILE = "update_usuario_datos.sql"
 _UPDATE_USER_PASSWORD_FILE = "update_usuario_password.sql"
+_UPDATE_USER_TEMP_PASSWORD_FILE = "update_usuario_temporary_password.sql"
 _UPDATE_USER_STATE_FILE = "update_usuario_estado.sql"
 
 
@@ -464,6 +465,7 @@ def crear_cuenta_vinculada(
                 alumno["nombre"],
                 correo_normalizado,
                 hash_validado,
+                0,
                 ESTADO_ACTIVO,
                 rol["rol_id"],
             ),
@@ -573,6 +575,7 @@ def crear_alumno_con_cuenta(
                 nombre,
                 correo_normalizado,
                 hash_validado,
+                1,
                 estado_validado,
                 rol["rol_id"],
             ),
@@ -719,14 +722,14 @@ def actualizar_password_cuenta(
     actor_usuario_id: object,
     database_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Actualiza solamente el hash de la cuenta vinculada."""
+    """Actualiza hash y obliga el cambio de la cuenta vinculada."""
     hash_validado = _validar_password_hash(password_hash)
     return _actualizar_cuenta(
         usuario_id,
         actor_usuario_id,
-        _load_user_query(_UPDATE_USER_PASSWORD_FILE),
+        _load_user_query(_UPDATE_USER_TEMP_PASSWORD_FILE),
         lambda connection, cursors, account, identifier: (
-            hash_validado, identifier
+            hash_validado, 1, identifier
         ),
         database_path,
     )

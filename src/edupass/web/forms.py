@@ -40,14 +40,6 @@ class AlumnoCrearIntegradoForm(AlumnoForm):
         "Correo",
         validators=[DataRequired(), Length(max=254)],
     )
-    password = PasswordField(
-        "Contraseña",
-        validators=[DataRequired(), Length(min=8, max=256)],
-    )
-    confirmar_password = PasswordField(
-        "Confirmar contraseña",
-        validators=[DataRequired(), EqualTo("password")],
-    )
     estado_acceso = SelectField(
         "Estado de acceso",
         choices=[("activo", "Activo"), ("inactivo", "Inactivo")],
@@ -146,15 +138,23 @@ class CuentaAlumnoEditarForm(FlaskForm):
 
 
 class CuentaAlumnoPasswordForm(FlaskForm):
-    password = PasswordField(
+    submit = SubmitField("Generar contraseña temporal")
+
+
+class CambioPasswordObligatorioForm(FlaskForm):
+    password_actual = PasswordField(
+        "Contraseña temporal actual",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    password_nuevo = PasswordField(
         "Nueva contraseña",
         validators=[DataRequired(), Length(min=8, max=256)],
     )
     confirmar_password = PasswordField(
         "Confirmar nueva contraseña",
-        validators=[DataRequired(), EqualTo("password")],
+        validators=[DataRequired(), EqualTo("password_nuevo")],
     )
-    submit = SubmitField("Actualizar contraseña")
+    submit = SubmitField("Establecer nueva contraseña")
 
 class EstadoUsuarioForm(FlaskForm):
     submit = SubmitField("Confirmar")

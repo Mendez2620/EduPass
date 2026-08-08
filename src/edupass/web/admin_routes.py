@@ -960,6 +960,20 @@ def _render_cuenta_alumno_password(
     )
 
 
+def _render_password_temporal(cuenta, password_temporal, heading, return_url):
+    response = make_response(
+        render_template(
+            "admin/password_temporal_resultado.html",
+            correo=cuenta["correo"],
+            password_temporal=password_temporal,
+            heading=heading,
+            return_url=return_url,
+            title="Contraseña temporal",
+        )
+    )
+    return _with_security_headers(response)
+
+
 def _cuenta_alumno_operation_error(message: str, status: int):
     return _render_cuentas_alumno_list(
         [], [], error_message=message, status=status
@@ -1227,11 +1241,12 @@ def cuenta_alumno_password(usuario_id: int):
             status=400,
         )
     try:
-        cuentas_alumno_service.restablecer_password_cuenta_alumno(
+        account, password_temporal = (
+            cuentas_alumno_service.generar_password_temporal_cuenta_alumno(
             usuario_id,
-            form.password.data,
             current_user.usuario_id,
             current_app.config["DATABASE_PATH"],
+        )
         )
     except (
         UsuarioNoEncontradoError,
@@ -1253,11 +1268,12 @@ def cuenta_alumno_password(usuario_id: int):
     except RepositoryError:
         return _technical_cuenta_alumno_error("restablecer contraseña")
 
-    flash(
-        "Contraseña de la cuenta del alumno actualizada correctamente.",
-        "success",
+    return _render_password_temporal(
+        account,
+        password_temporal,
+        "Contraseña temporal generada correctamente",
+        url_for("admin.cuentas_alumnos_list"),
     )
-    return redirect(url_for("admin.cuentas_alumnos_list"))
 
 
 def _cambiar_estado_cuenta_alumno(
@@ -1360,7 +1376,7 @@ def alumno_nuevo():
         )
 
     try:
-        cuentas_alumno_service.crear_alumno_con_cuenta(
+        account, password_temporal = cuentas_alumno_service.crear_alumno_con_cuenta(
             nombre=form.nombre.data,
             matricula=form.matricula.data,
             grado=form.grado.data,
@@ -1368,7 +1384,6 @@ def alumno_nuevo():
             fotografia=None,
             alumno_estado=ESTADO_ALUMNO_ACTIVO,
             correo=form.correo.data,
-            password=form.password.data,
             cuenta_estado=form.estado_acceso.data,
             actor_usuario_id=current_user.usuario_id,
             database_path=current_app.config["DATABASE_PATH"],
@@ -1397,8 +1412,12 @@ def alumno_nuevo():
     except RepositoryError:
         return _technical_alumno_error("registrar")
 
-    flash("Alumno y cuenta EduPass creados correctamente.", "success")
-    return redirect(url_for("admin.alumnos_list"))
+    return _render_password_temporal(
+        account,
+        password_temporal,
+        "Alumno y cuenta EduPass creados correctamente",
+        url_for("admin.alumnos_list"),
+    )
 
 
 @admin_blueprint.route(
