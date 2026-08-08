@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
-from edupass.modules.alumnos import alumnos_service
+from edupass.modules.alumnos import alumnos_service, cuentas_alumno_service
 from edupass.modules.auth import usuarios_service
 from edupass.modules.credencial_qr import credencial_service
 from edupass.persistence import database_manager
@@ -98,6 +98,10 @@ class TestWebAlumnosCrud(unittest.TestCase):
             "matricula": "crud-003",
             "grado": "5",
             "grupo": "C",
+            "correo": "nueva.alumna@edupass.test",
+            "password": self.PASSWORD,
+            "confirmar_password": self.PASSWORD,
+            "estado_acceso": "activo",
         }
         data.update(overrides)
         return data
@@ -190,8 +194,14 @@ class TestWebAlumnosCrud(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Registrar alumno", body)
-        for field in ("nombre", "matricula", "grado", "grupo"):
+        for field in (
+            "nombre", "matricula", "grado", "grupo", "correo",
+            "password", "confirmar_password", "estado_acceso",
+        ):
             self.assertIn(f'name="{field}"', body)
+        self.assertIn("Datos escolares", body)
+        self.assertIn("Acceso a EduPass", body)
+        self.assertNotIn('name="rol"', body)
         self.assertNotIn('name="estado"', body)
         self.assertNotIn('name="fotografia"', body)
 
@@ -205,6 +215,7 @@ class TestWebAlumnosCrud(unittest.TestCase):
         response = self.client.post("/admin/alumnos/nuevo", data=self._new_data())
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self._count("alumnos"), 3)
+        self.assertEqual(self._count("usuario_alumno"), 1)
 
     def test_06_estado_inicial_activo(self):
         self._login()
@@ -258,7 +269,7 @@ class TestWebAlumnosCrud(unittest.TestCase):
             follow_redirects=True,
         )
         self.assertIn(
-            "Alumno registrado correctamente.",
+            "Alumno y cuenta EduPass creados correctamente.",
             response.get_data(as_text=True),
         )
 
@@ -444,8 +455,8 @@ class TestWebAlumnosCrud(unittest.TestCase):
     def test_27_error_repositorio_controlado(self):
         self._login()
         with patch.object(
-            alumnos_service,
-            "registrar_alumno",
+            cuentas_alumno_service,
+            "crear_alumno_con_cuenta",
             side_effect=RepositoryError("detalle privado"),
         ):
             response = self.client.post(
@@ -461,8 +472,8 @@ class TestWebAlumnosCrud(unittest.TestCase):
     def test_28_sql_no_expuesto(self):
         self._login()
         with patch.object(
-            alumnos_service,
-            "registrar_alumno",
+            cuentas_alumno_service,
+            "crear_alumno_con_cuenta",
             side_effect=RepositoryError("SELECT secreto FROM alumnos"),
         ):
             body = self.client.post(
@@ -474,8 +485,8 @@ class TestWebAlumnosCrud(unittest.TestCase):
     def test_29_ruta_sqlite_no_expuesta(self):
         self._login()
         with patch.object(
-            alumnos_service,
-            "registrar_alumno",
+            cuentas_alumno_service,
+            "crear_alumno_con_cuenta",
             side_effect=RepositoryError(str(self.database_path)),
         ):
             body = self.client.post(
@@ -488,8 +499,8 @@ class TestWebAlumnosCrud(unittest.TestCase):
     def test_30_traceback_no_expuesto(self):
         self._login()
         with patch.object(
-            alumnos_service,
-            "registrar_alumno",
+            cuentas_alumno_service,
+            "crear_alumno_con_cuenta",
             side_effect=RepositoryError("Traceback: dato privado"),
         ):
             body = self.client.post(
@@ -579,6 +590,86 @@ class TestWebAlumnosCrud(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].endswith("/admin/alumnos"))
+
+    def test_39_rol_manipulado_se_ignora_y_login_funciona(self):
+        self._login()
+        response = self.client.post(
+            "/admin/alumnos/nuevo",
+            data=self._new_data(rol="administrador"),
+        )
+        self.assertEqual(response.status_code, 302)
+        row = self._query_one(
+            """
+            SELECT usuarios.correo, usuarios.estado, roles.nombre
+            FROM usuarios
+            INNER JOIN roles ON roles.rol_id = usuarios.rol_id
+            WHERE usuarios.correo = ?;
+            """,
+            ("nueva.alumna@edupass.test",),
+        )
+        self.assertEqual(tuple(row), ("nueva.alumna@edupass.test", "activo", "alumno"))
+        login_client = self.app.test_client()
+        self.assertEqual(
+            self._login(
+                "nueva.alumna@edupass.test", client=login_client
+            ).status_code,
+            302,
+        )
+        self.assertEqual(
+            login_client.get("/admin/alumnos/nuevo").status_code,
+            403,
+        )
+
+    def test_40_rol_escaner_manipulado_se_ignora(self):
+        self._login()
+        self.client.post(
+            "/admin/alumnos/nuevo",
+            data=self._new_data(rol="escaner"),
+        )
+        role = self._query_one(
+            """
+            SELECT roles.nombre FROM usuarios
+            INNER JOIN roles ON roles.rol_id = usuarios.rol_id
+            WHERE usuarios.correo = ?;
+            """,
+            ("nueva.alumna@edupass.test",),
+        )[0]
+        self.assertEqual(role, "alumno")
+
+    def test_41_cuenta_inactiva_no_inicia_sesion(self):
+        self._login()
+        self.client.post(
+            "/admin/alumnos/nuevo",
+            data=self._new_data(estado_acceso="inactivo"),
+        )
+        response = self._login(
+            "nueva.alumna@edupass.test", client=self.app.test_client()
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "No fue posible iniciar sesion con las credenciales proporcionadas.",
+            response.get_data(as_text=True),
+        )
+
+    def test_42_correo_duplicado_revierte_alumno(self):
+        self._login()
+        before = self._count("alumnos")
+        response = self.client.post(
+            "/admin/alumnos/nuevo",
+            data=self._new_data(correo="admin.crud@edupass.test"),
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._count("alumnos"), before)
+
+    def test_43_matricula_duplicada_no_crea_usuario(self):
+        self._login()
+        before = self._count("usuarios")
+        response = self.client.post(
+            "/admin/alumnos/nuevo",
+            data=self._new_data(matricula="CRUD-001"),
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._count("usuarios"), before)
 
 
 if __name__ == "__main__":

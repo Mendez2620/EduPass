@@ -43,6 +43,7 @@ from edupass.web.forms import (
     AdministradorCrearForm,
     AdministradorEditarForm,
     AdministradorPasswordForm,
+    AlumnoCrearIntegradoForm,
     AlumnoForm,
     CuentaAlumnoCrearForm,
     CuentaAlumnoEditarForm,
@@ -1347,7 +1348,7 @@ def alumnos_list():
 @admin_blueprint.route("/alumnos/nuevo", methods=["GET", "POST"])
 @role_required(ROL_ADMINISTRADOR)
 def alumno_nuevo():
-    form = AlumnoForm()
+    form = AlumnoCrearIntegradoForm()
     if not form.is_submitted():
         return _render_alumno_form(form, "crear")
     if not form.validate_on_submit():
@@ -1359,14 +1360,25 @@ def alumno_nuevo():
         )
 
     try:
-        alumnos_service.registrar_alumno(
+        cuentas_alumno_service.crear_alumno_con_cuenta(
             nombre=form.nombre.data,
             matricula=form.matricula.data,
             grado=form.grado.data,
             grupo=form.grupo.data,
             fotografia=None,
-            estado=ESTADO_ALUMNO_ACTIVO,
+            alumno_estado=ESTADO_ALUMNO_ACTIVO,
+            correo=form.correo.data,
+            password=form.password.data,
+            cuenta_estado=form.estado_acceso.data,
+            actor_usuario_id=current_user.usuario_id,
             database_path=current_app.config["DATABASE_PATH"],
+        )
+    except DuplicateUserError:
+        return _render_alumno_form(
+            form,
+            "crear",
+            error_message="El correo ya está registrado.",
+            status=409,
         )
     except MatriculaDuplicadaError:
         return _render_alumno_form(
@@ -1385,7 +1397,7 @@ def alumno_nuevo():
     except RepositoryError:
         return _technical_alumno_error("registrar")
 
-    flash("Alumno registrado correctamente.", "success")
+    flash("Alumno y cuenta EduPass creados correctamente.", "success")
     return redirect(url_for("admin.alumnos_list"))
 
 

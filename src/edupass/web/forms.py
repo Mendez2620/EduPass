@@ -35,6 +35,27 @@ class AlumnoForm(FlaskForm):
     submit = SubmitField("Guardar alumno")
 
 
+class AlumnoCrearIntegradoForm(AlumnoForm):
+    correo = StringField(
+        "Correo",
+        validators=[DataRequired(), Length(max=254)],
+    )
+    password = PasswordField(
+        "Contraseña",
+        validators=[DataRequired(), Length(min=8, max=256)],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    estado_acceso = SelectField(
+        "Estado de acceso",
+        choices=[("activo", "Activo"), ("inactivo", "Inactivo")],
+        validators=[DataRequired()],
+    )
+    submit = SubmitField("Crear alumno y cuenta")
+
+
 class EstadoAlumnoForm(FlaskForm):
     submit = SubmitField("Confirmar")
 

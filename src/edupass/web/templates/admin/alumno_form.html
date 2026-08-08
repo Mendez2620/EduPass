@@ -3,7 +3,7 @@
 <section class="page-heading">
   <p class="eyebrow">Administracion de alumnos</p>
   <h1>{{ "Registrar alumno" if operation == "crear" else "Editar alumno" }}</h1>
-  <p>Captura los datos academicos obligatorios del alumno.</p>
+  <p>{{ "Captura los datos escolares y el acceso que se creará en una sola operación." if operation == "crear" else "Actualiza exclusivamente los datos escolares del alumno." }}</p>
 </section>
 
 {% if error_message %}
@@ -11,7 +11,7 @@
 {% endif %}
 
 <section class="student-form-panel" aria-labelledby="student-form-title">
-  <h2 id="student-form-title">Datos del alumno</h2>
+  <h2 id="student-form-title">Datos escolares</h2>
   <form class="student-form" method="post" novalidate>
     {{ form.hidden_tag() }}
     <div class="student-form-grid">
@@ -44,6 +44,34 @@
         {% endfor %}
       </div>
     </div>
+    {% if operation == "crear" %}
+      <section class="student-account-fields" aria-labelledby="student-access-title">
+        <h2 id="student-access-title">Acceso a EduPass</h2>
+        <p class="form-guidance">✓ Alumno<br>✓ Cuenta EduPass vinculada</p>
+        <div class="student-form-grid">
+          <div class="field student-form-wide">
+            {{ form.correo.label }}
+            {{ form.correo(autocomplete="email", spellcheck="false") }}
+            {% for error in form.correo.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field">
+            {{ form.password.label }}
+            {{ form.password(autocomplete="new-password") }}
+            {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field">
+            {{ form.confirmar_password.label }}
+            {{ form.confirmar_password(autocomplete="new-password") }}
+            {% for error in form.confirmar_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field student-form-wide">
+            {{ form.estado_acceso.label }}
+            {{ form.estado_acceso() }}
+            {% for error in form.estado_acceso.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      </section>
+    {% endif %}
     <div class="student-form-actions">
       {{ form.submit(class_="button button-primary") }}
       <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumnos_list') }}">Regresar al listado</a>

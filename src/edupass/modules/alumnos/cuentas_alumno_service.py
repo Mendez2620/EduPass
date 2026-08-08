@@ -8,9 +8,11 @@ from typing import Any
 from werkzeug.security import generate_password_hash
 
 from edupass.modules.auth import roles_service
+from edupass.modules.alumnos import alumnos_service
 from edupass.persistence.repositories import usuario_alumno_repository
 from edupass.shared.constants import ESTADO_ACTIVO, ESTADO_INACTIVO, ROL_ALUMNO
 from edupass.shared.errors import (
+    AlumnoInactivoError,
     UsuarioNoEsAlumnoError,
     ValidationError,
     VinculoUsuarioAlumnoNoEncontradoError,
@@ -126,6 +128,64 @@ def crear_cuenta_alumno(
         student_id,
         normalized_email,
         generate_password_hash(validated_password),
+        actor_id,
+        database_path,
+    )
+    return _cuenta_segura(account)
+
+
+def crear_alumno_con_cuenta(
+    nombre: object,
+    matricula: object,
+    grado: object,
+    grupo: object,
+    fotografia: object,
+    alumno_estado: object,
+    correo: object,
+    password: object,
+    cuenta_estado: object,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Valida y crea alumno, cuenta y vinculo de forma atomica."""
+    actor_id = _validar_id(actor_usuario_id, "usuario actor")
+    nombre_normalizado = alumnos_service._normalizar_texto_obligatorio(
+        nombre, "nombre"
+    )
+    matricula_normalizada = alumnos_service._normalizar_matricula(matricula)
+    grado_normalizado = alumnos_service._normalizar_texto_obligatorio(
+        grado, "grado"
+    )
+    grupo_normalizado = alumnos_service._normalizar_texto_obligatorio(
+        grupo, "grupo"
+    )
+    fotografia_normalizada = alumnos_service._normalizar_fotografia(fotografia)
+    alumno_estado_normalizado = alumnos_service._normalizar_estado(alumno_estado)
+    correo_normalizado = _normalizar_correo(correo)
+    password_validado = _validar_password(password)
+    if not isinstance(cuenta_estado, str):
+        raise ValidationError("El estado de la cuenta no es valido.")
+    cuenta_estado_normalizado = cuenta_estado.strip().lower()
+    if cuenta_estado_normalizado not in {ESTADO_ACTIVO, ESTADO_INACTIVO}:
+        raise ValidationError("El estado de la cuenta no es valido.")
+    if (
+        alumno_estado_normalizado != ESTADO_ACTIVO
+        and cuenta_estado_normalizado == ESTADO_ACTIVO
+    ):
+        raise AlumnoInactivoError(
+            "No se puede activar una cuenta para un alumno inactivo."
+        )
+
+    account = usuario_alumno_repository.crear_alumno_con_cuenta(
+        nombre_normalizado,
+        matricula_normalizada,
+        grado_normalizado,
+        grupo_normalizado,
+        fotografia_normalizada,
+        alumno_estado_normalizado,
+        correo_normalizado,
+        generate_password_hash(password_validado),
+        cuenta_estado_normalizado,
         actor_id,
         database_path,
     )

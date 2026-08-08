@@ -21,6 +21,7 @@ from edupass.shared.errors import (
     ConsultaSqlError,
     DuplicateUserError,
     EduPassError,
+    MatriculaDuplicadaError,
     RepositoryError,
     UsuarioAlumnoYaVinculadoError,
     UsuarioNoEncontradoError,
@@ -44,6 +45,8 @@ _SELECT_STUDENT_ROLE_FILE = "select_rol_alumno_for_cuenta.sql"
 _SELECT_EMAIL_FILE = "select_correo_usuario_for_cuenta.sql"
 _INSERT_STUDENT_USER_FILE = "insert_usuario_cuenta_alumno.sql"
 _USERS_SQL_DIRECTORY = _SQL_DIRECTORY.parent / "usuarios"
+_STUDENTS_SQL_DIRECTORY = _SQL_DIRECTORY.parent / "alumnos"
+_INSERT_STUDENT_FILE = "insert_alumno.sql"
 _UPDATE_USER_DATA_FILE = "update_usuario_datos.sql"
 _UPDATE_USER_PASSWORD_FILE = "update_usuario_password.sql"
 _UPDATE_USER_STATE_FILE = "update_usuario_estado.sql"
@@ -239,6 +242,25 @@ def obtener_por_alumno(
 
 def _load_user_query(file_name: str) -> str:
     query_path = _USERS_SQL_DIRECTORY / file_name
+    if not query_path.is_file():
+        raise ConsultaSqlError(
+            f"No se encontro el archivo de consulta SQL: {file_name}"
+        )
+    try:
+        query = query_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConsultaSqlError(
+            f"No se pudo leer el archivo de consulta SQL: {file_name}"
+        ) from exc
+    if not query.strip():
+        raise ConsultaSqlError(
+            f"El archivo de consulta SQL esta vacio: {file_name}"
+        )
+    return query
+
+
+def _load_student_query(file_name: str) -> str:
+    query_path = _STUDENTS_SQL_DIRECTORY / file_name
     if not query_path.is_file():
         raise ConsultaSqlError(
             f"No se encontro el archivo de consulta SQL: {file_name}"
@@ -486,6 +508,123 @@ def crear_cuenta_vinculada(
         _rollback(connection)
         raise RepositoryError(
             "No se pudo crear la cuenta vinculada."
+        ) from exc
+    finally:
+        _close_transaction_resources(cursors, connection)
+
+
+def crear_alumno_con_cuenta(
+    nombre: str,
+    matricula: str,
+    grado: str,
+    grupo: str,
+    fotografia: str | None,
+    alumno_estado: str,
+    correo: str,
+    password_hash: str,
+    cuenta_estado: str,
+    actor_usuario_id: object,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Crea alumno, cuenta alumno y vinculo en una sola transaccion."""
+    actor_id = _validar_id(actor_usuario_id, "usuario actor")
+    correo_normalizado = _normalizar_correo(correo)
+    hash_validado = _validar_password_hash(password_hash)
+    estado_validado = _validar_estado(cuenta_estado)
+    queries = {
+        "actor": _load_query(_SELECT_ACTOR_FILE),
+        "correo": _load_query(_SELECT_EMAIL_FILE),
+        "rol": _load_query(_SELECT_STUDENT_ROLE_FILE),
+        "alumno": _load_student_query(_INSERT_STUDENT_FILE),
+        "usuario": _load_query(_INSERT_STUDENT_USER_FILE),
+        "relacion": _load_query(_INSERT_FILE),
+        "detalle": _load_query(_SELECT_DETAIL_FILE),
+    }
+    connection = None
+    cursors: list[sqlite3.Cursor] = []
+    try:
+        connection = database_manager.get_connection(database_path)
+        connection.row_factory = sqlite3.Row
+        _execute(connection, cursors, "BEGIN IMMEDIATE;")
+        _require_active_admin(connection, cursors, queries["actor"], actor_id)
+
+        if _execute(
+            connection, cursors, queries["correo"], (correo_normalizado,)
+        ).fetchone() is not None:
+            raise DuplicateUserError("El correo ya está registrado.")
+        rol = _execute(
+            connection, cursors, queries["rol"], (ROL_ALUMNO,)
+        ).fetchone()
+        if rol is None:
+            raise RepositoryError("No se encontro el rol alumno.")
+
+        student_cursor = _execute(
+            connection,
+            cursors,
+            queries["alumno"],
+            (nombre, matricula, grado, grupo, fotografia, alumno_estado),
+        )
+        alumno_id = int(student_cursor.lastrowid)
+        user_cursor = _execute(
+            connection,
+            cursors,
+            queries["usuario"],
+            (
+                nombre,
+                correo_normalizado,
+                hash_validado,
+                estado_validado,
+                rol["rol_id"],
+            ),
+        )
+        usuario_id = int(user_cursor.lastrowid)
+        link_cursor = _execute(
+            connection,
+            cursors,
+            queries["relacion"],
+            (usuario_id, alumno_id),
+        )
+        detail = _row_to_dict(
+            _execute(
+                connection,
+                cursors,
+                queries["detalle"],
+                (int(link_cursor.lastrowid),),
+            ).fetchone()
+        )
+        if detail is None:
+            raise VinculoUsuarioAlumnoNoEncontradoError(
+                "No se encontró la vinculación solicitada."
+            )
+        connection.commit()
+        return detail
+    except sqlite3.IntegrityError as exc:
+        _rollback(connection)
+        message = str(exc)
+        if "alumnos.matricula" in message:
+            raise MatriculaDuplicadaError(
+                "La matrícula ya está registrada."
+            ) from exc
+        if "usuarios.correo" in message:
+            raise DuplicateUserError("El correo ya está registrado.") from exc
+        if "usuario_alumno.usuario_id" in message:
+            raise UsuarioAlumnoYaVinculadoError(
+                "El usuario ya está vinculado a un alumno."
+            ) from exc
+        if "usuario_alumno.alumno_id" in message:
+            raise AlumnoYaTieneUsuarioError(
+                "El alumno ya tiene una cuenta vinculada."
+            ) from exc
+        raise RepositoryError(
+            "No se pudo crear el alumno y su cuenta vinculada."
+        ) from exc
+    except EduPassError:
+        _rollback(connection)
+        raise
+    except (database_manager.DatabaseManagerError, sqlite3.Error) as exc:
+        _rollback(connection)
+        raise RepositoryError(
+            "No se pudo crear el alumno y su cuenta vinculada."
         ) from exc
     finally:
         _close_transaction_resources(cursors, connection)
