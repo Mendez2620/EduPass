@@ -182,7 +182,7 @@ class PrevisualizarMovimientoForm(FlaskForm):
         validators=[DataRequired(), Length(max=43)],
         render_kw={"autocomplete": "off"},
     )
-    preview_submit = SubmitField("Detectar movimiento")
+    preview_submit = SubmitField("Registrar movimiento")
 
 
 class ConfirmarMovimientoForm(FlaskForm):

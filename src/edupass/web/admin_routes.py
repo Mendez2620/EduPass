@@ -193,6 +193,9 @@ def _safe_students(rows):
             "grado": row.get("grado"),
             "grupo": row.get("grupo"),
             "estado": row.get("estado"),
+            "usuario_id": row.get("usuario_id"),
+            "correo": row.get("correo"),
+            "usuario_estado": row.get("usuario_estado"),
         }
         for row in rows
     ]
@@ -934,6 +937,7 @@ def _render_cuenta_alumno_form(
             form=form,
             operation=operation,
             cuenta=cuenta,
+            estado_form=EstadoUsuarioForm(),
             error_message=error_message,
             title=title,
         ),
@@ -1037,6 +1041,12 @@ def cuenta_alumno_nueva():
     form = CuentaAlumnoCrearForm()
     _configure_student_choices(form, students)
     if not form.is_submitted():
+        try:
+            requested_student = int(request.args.get("alumno_id", ""))
+        except (TypeError, ValueError):
+            requested_student = None
+        if requested_student in {student["alumno_id"] for student in students}:
+            form.alumno_id.data = requested_student
         return _render_cuenta_alumno_form(form, "crear")
     if not form.validate_on_submit():
         try:
@@ -1338,11 +1348,32 @@ def alumnos_list():
     error_message = None
     alumnos = []
     try:
-        alumnos = _safe_students(
-            alumnos_service.listar_alumnos(
+        student_rows = alumnos_service.listar_alumnos(
+            current_app.config["DATABASE_PATH"]
+        )
+        account_by_student = {
+            account["alumno_id"]: account
+            for account in cuentas_alumno_service.listar_cuentas_alumno(
                 current_app.config["DATABASE_PATH"]
             )
-        )
+        }
+        alumnos = _safe_students([
+            {
+                **student,
+                **{
+                    "usuario_id": account_by_student.get(
+                        student["alumno_id"], {}
+                    ).get("usuario_id"),
+                    "correo": account_by_student.get(
+                        student["alumno_id"], {}
+                    ).get("correo"),
+                    "usuario_estado": account_by_student.get(
+                        student["alumno_id"], {}
+                    ).get("usuario_estado"),
+                },
+            }
+            for student in student_rows
+        ])
     except RepositoryError:
         current_app.logger.warning(
             "No fue posible obtener el listado administrativo de alumnos."

@@ -144,6 +144,34 @@ def registrar_movimiento_con_token(
     return result
 
 
+def registrar_movimiento_automatico_directo(
+    token: object,
+    usuario_id: object,
+    punto_plantel: str = PUNTO_PLANTEL_ACCESO_PRINCIPAL,
+    database_path: Path | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Registra el siguiente tipo decidido enteramente por el backend."""
+    token_normalizado = _normalizar_token(token)
+    usuario_id_validado = _validar_usuario_id(usuario_id)
+    punto_normalizado = _normalizar_punto(punto_plantel)
+    fecha_hora = serializar_utc(obtener_utc_actual(clock))
+    movimiento = movimiento_repository.registrar_directo_automatico_con_token(
+        calcular_hash_token(token_normalizado),
+        fecha_hora,
+        usuario_id_validado,
+        punto_normalizado,
+        database_path,
+    )
+    result = {key: movimiento[key] for key in _RESULT_KEYS}
+    result["mensaje"] = (
+        "Entrada registrada correctamente."
+        if result["tipo_movimiento"] == TIPO_MOVIMIENTO_ENTRADA
+        else "Salida registrada correctamente."
+    )
+    return result
+
+
 def previsualizar_movimiento_con_token(
     token: str,
     database_path: Path | None = None,

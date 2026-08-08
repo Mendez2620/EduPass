@@ -7,8 +7,6 @@
   <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva') }}">Crear cuenta</a>
 </section>
 
-<p class="account-access-notice">El acceso del alumno se habilitará en el siguiente incremento.</p>
-
 {% if error_message %}
   <p class="message message-error" role="alert">{{ error_message }}</p>
 {% elif cuentas %}

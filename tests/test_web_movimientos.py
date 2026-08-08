@@ -93,25 +93,7 @@ class TestWebMovimientos(unittest.TestCase):
 
     def _post(self, token, tipo=None, client=None):
         selected = client or self.client
-        preview = selected.post(
-            "/scanner/validar",
-            data={"token": token, "preview_submit": "Detectar movimiento"},
-        )
-        parser = InputParser()
-        parser.feed(preview.get_data(as_text=True))
-        preview_id = parser.value("preview_id")
-        if preview_id is None:
-            return preview
-        return selected.post(
-            "/scanner/validar",
-            data={
-                "preview_id": preview_id,
-                "tipo_esperado": (
-                    tipo if tipo is not None else parser.value("tipo_esperado")
-                ),
-                "confirm_submit": "1",
-            },
-        )
+        return selected.post("/scanner/validar", data={"token": token})
 
     def _query_one(self, sql, parameters=()):
         connection = database_manager.get_connection(self.database_path)
@@ -154,7 +136,7 @@ class TestWebMovimientos(unittest.TestCase):
         body = self.client.get("/scanner/validar").get_data(as_text=True)
         self.assertNotIn('name="tipo_movimiento"', body)
         self.assertNotIn("<select", body)
-        self.assertIn("Detectar movimiento", body)
+        self.assertIn("Registrar movimiento", body)
 
     def test_05_csrf_presente(self):
         csrf_app = create_app({
@@ -233,37 +215,36 @@ class TestWebMovimientos(unittest.TestCase):
         self._login()
         self._post(self._generate(), "entrada")
         body = self._post(self._generate(), "entrada").get_data(as_text=True)
-        self.assertIn("no coincide con la previsualización", body)
-        self.assertIn("SALIDA", body)
-        self.assertEqual(self._count("movimientos"), 1)
+        self.assertIn("SALIDA REGISTRADA", body)
+        self.assertEqual(self._count("movimientos"), 2)
 
     def test_14_qr_activo_tras_doble_entrada(self):
         self._login()
         self._post(self._generate(), "entrada")
         token = self._generate()
         self._post(token, "entrada")
-        self.assertEqual(self._token_state(token), "activo")
+        self.assertEqual(self._token_state(token), "utilizado")
 
     def test_15_tipo_salida_manipulado_no_fuerza_salida(self):
         self._login()
         body = self._post(self._generate(), "salida").get_data(as_text=True)
-        self.assertIn("no coincide con la previsualización", body)
+        self.assertIn("ENTRADA REGISTRADA", body)
         self.assertIn("ENTRADA", body)
 
     def test_16_qr_activo_tras_salida_invalida(self):
         token = self._generate()
         self._login()
         self._post(token, "salida")
-        self.assertEqual(self._token_state(token), "activo")
+        self.assertEqual(self._token_state(token), "utilizado")
 
     def test_17_tipo_salida_manipulado_no_fuerza_doble_salida(self):
         self._login()
         self._register_entry_and_exit()
         token = self._generate()
         body = self._post(token, "salida").get_data(as_text=True)
-        self.assertIn("no coincide con la previsualización", body)
+        self.assertIn("ENTRADA REGISTRADA", body)
         self.assertIn("ENTRADA", body)
-        self.assertEqual(self._token_state(token), "activo")
+        self.assertEqual(self._token_state(token), "utilizado")
 
     def test_18_nueva_entrada_despues_de_salida(self):
         self._login()
@@ -312,7 +293,7 @@ class TestWebMovimientos(unittest.TestCase):
         self._login()
         with patch(
             "edupass.web.scanner_routes.movimientos_service."
-            "confirmar_movimiento_automatico",
+            "registrar_movimiento_automatico_directo",
             side_effect=UsuarioEscanerInvalidoError(),
         ):
             response = self._post(self._generate())
@@ -321,8 +302,8 @@ class TestWebMovimientos(unittest.TestCase):
     def test_25_confirmacion_sin_tipo_esperado(self):
         self._login()
         response = self._post(self._generate(), "")
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("confirmación no es válida", response.get_data(as_text=True))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("ENTRADA REGISTRADA", response.get_data(as_text=True))
 
     def test_26_formulario_sin_token(self):
         self._login()
@@ -333,8 +314,8 @@ class TestWebMovimientos(unittest.TestCase):
     def test_27_tipo_manipulado(self):
         self._login()
         response = self._post(self._generate(), "eliminar")
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(self._count("movimientos"), 0)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._count("movimientos"), 1)
 
     def test_28_token_no_aparece_en_respuesta(self):
         token = self._generate()
@@ -357,8 +338,7 @@ class TestWebMovimientos(unittest.TestCase):
             data={"token": self._generate(), "preview_submit": "1"},
         ).get_data(as_text=True)
         self.assertNotIn("MOV-0001", body)
-        self.assertIn("****0001", body)
-        self.assertIn("Matr\u00edcula", body)
+        self.assertNotIn("****0001", body)
 
     def test_31_ids_internos_no_aparecen_en_respuesta(self):
         self._login()
@@ -389,7 +369,7 @@ class TestWebMovimientos(unittest.TestCase):
         self._login()
         with patch(
             "edupass.web.scanner_routes.movimientos_service."
-            "confirmar_movimiento_automatico",
+            "registrar_movimiento_automatico_directo",
             side_effect=RepositoryError("SELECT secreto"),
         ):
             response = self._post(self._generate())
@@ -420,7 +400,7 @@ class TestWebMovimientos(unittest.TestCase):
     def test_39_boton_muestra_texto_correcto(self):
         self._login()
         body = self.client.get("/scanner/validar").get_data(as_text=True)
-        self.assertIn("Detectar movimiento", body)
+        self.assertIn("Registrar movimiento", body)
 
     def test_40_area_y_dispositivo_permanecen_null(self):
         self._login()
@@ -434,13 +414,6 @@ class TestWebMovimientos(unittest.TestCase):
     def test_41_cambio_entre_preview_y_confirmacion_exige_reconfirmar(self):
         token = self._generate()
         self._login()
-        preview = self.client.post(
-            "/scanner/validar",
-            data={"token": token, "preview_submit": "1"},
-        )
-        parser = InputParser()
-        parser.feed(preview.get_data(as_text=True))
-
         connection = database_manager.get_connection(self.database_path)
         try:
             connection.execute(
@@ -458,19 +431,11 @@ class TestWebMovimientos(unittest.TestCase):
         finally:
             connection.close()
 
-        response = self.client.post(
-            "/scanner/validar",
-            data={
-                "preview_id": parser.value("preview_id"),
-                "tipo_esperado": parser.value("tipo_esperado"),
-                "confirm_submit": "1",
-            },
-        )
+        response = self.client.post("/scanner/validar", data={"token": token})
         body = response.get_data(as_text=True)
-        self.assertIn("El estado del alumno cambió", body)
-        self.assertIn("SALIDA", body)
-        self.assertEqual(self._token_state(token), "activo")
-        self.assertEqual(self._count("movimientos"), 1)
+        self.assertIn("SALIDA REGISTRADA", body)
+        self.assertEqual(self._token_state(token), "utilizado")
+        self.assertEqual(self._count("movimientos"), 2)
 
     def test_42_preview_web_no_consume_ni_inserta(self):
         token = self._generate()
@@ -480,11 +445,10 @@ class TestWebMovimientos(unittest.TestCase):
             data={"token": token, "preview_submit": "1"},
         )
         body = response.get_data(as_text=True)
-        self.assertIn("QR detectado", body)
-        self.assertIn("ENTRADA", body)
+        self.assertIn("ENTRADA REGISTRADA", body)
         self.assertNotIn(token, body)
-        self.assertEqual(self._token_state(token), "activo")
-        self.assertEqual(self._count("movimientos"), 0)
+        self.assertEqual(self._token_state(token), "utilizado")
+        self.assertEqual(self._count("movimientos"), 1)
 
 
 if __name__ == "__main__":

@@ -78,24 +78,7 @@ class TestWebQrValidation(unittest.TestCase):
         )["token"]
 
     def _post(self, token, movement_type=None):
-        preview = self.client.post("/scanner/validar", data={
-            "token": token,
-            "preview_submit": "Detectar movimiento",
-        })
-        parser = InputParser()
-        parser.feed(preview.get_data(as_text=True))
-        preview_id = parser.value("preview_id")
-        if preview_id is None:
-            return preview
-        return self.client.post("/scanner/validar", data={
-            "preview_id": preview_id,
-            "tipo_esperado": (
-                movement_type
-                if movement_type is not None
-                else parser.value("tipo_esperado")
-            ),
-            "confirm_submit": "1",
-        })
+        return self.client.post("/scanner/validar", data={"token": token})
 
     def _count(self, table):
         connection = database_manager.get_connection(self.database_path)
@@ -180,7 +163,7 @@ class TestWebQrValidation(unittest.TestCase):
         self._login()
         self._post(token)
         response = self._post(token)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Token ya utilizado.", response.get_data(as_text=True))
 
     def test_token_vencido_muestra_vencido(self):
@@ -188,13 +171,13 @@ class TestWebQrValidation(unittest.TestCase):
         token = self._generate(clock=lambda: old)
         self._login()
         response = self._post(token)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Token vencido.", response.get_data(as_text=True))
 
     def test_token_invalido_muestra_invalido(self):
         self._login()
         response = self._post("Z" * 43)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Token inválido.", response.get_data(as_text=True))
 
     def test_token_alterado_muestra_invalido(self):
@@ -209,7 +192,7 @@ class TestWebQrValidation(unittest.TestCase):
         alumnos_service.desactivar_alumno(self.alumno["alumno_id"], self.database_path)
         self._login()
         response = self._post(token)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Alumno inactivo.", response.get_data(as_text=True))
 
     def test_token_vacio_muestra_validacion_controlada(self):
@@ -277,7 +260,7 @@ class TestWebQrValidation(unittest.TestCase):
             data={"token": token, "preview_submit": "1"},
         ).get_data(as_text=True)
         self.assertNotIn("QR-0001", body)
-        self.assertIn("***0001", body)
+        self.assertNotIn("***0001", body)
 
     def test_respuesta_no_muestra_ruta_sqlite(self):
         token = self._generate()
@@ -326,7 +309,7 @@ class TestWebQrValidation(unittest.TestCase):
         )
         self._login()
         response = self._post(old_token)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Token inválido.", response.get_data(as_text=True))
 
     def test_existe_interfaz_de_camara_con_respaldo_manual(self):
@@ -347,13 +330,13 @@ class TestWebQrValidation(unittest.TestCase):
         body = self.client.get("/scanner/validar").get_data(as_text=True)
         self.assertNotIn("<select", body)
         self.assertNotIn('name="tipo_movimiento"', body)
-        self.assertIn("Detectar movimiento", body)
+        self.assertIn("Registrar movimiento", body)
 
-    def test_resultado_de_negocio_usa_http_200(self):
+    def test_resultado_rechazado_usa_http_400(self):
         self._login()
         for token in ("Z" * 43, "Y" * 43):
             with self.subTest(token=token[0]):
-                self.assertEqual(self._post(token).status_code, 200)
+                self.assertEqual(self._post(token).status_code, 400)
 
 
 if __name__ == "__main__":

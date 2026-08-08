@@ -105,10 +105,11 @@ class TestWebUiResponsive(unittest.TestCase):
         ):
             self.assertIn(heading, body)
         for route in (
-            "/admin/alumnos", "/admin/cuentas-alumnos",
-            "/admin/administradores", "/admin/escaneres", "/admin/historial",
+            "/admin/alumnos", "/admin/administradores",
+            "/admin/escaneres", "/admin/historial",
         ):
             self.assertEqual(dashboard.count(f'href="{route}"'), 1)
+        self.assertNotIn('href="/admin/cuentas-alumnos"', dashboard)
 
     def test_flash_messages_have_accessible_semantics_and_text_icons(self):
         response = self.client.post(
@@ -166,11 +167,12 @@ class TestWebUiResponsive(unittest.TestCase):
         self.assertIn("Mi credencial", credential.get_data(as_text=True))
         self.assertIn("Mi historial", history.get_data(as_text=True))
 
-    def test_entry_exit_is_automatic_and_confirmation_remains_manual(self):
+    def test_entry_exit_registration_is_direct_and_automatic(self):
         self.assertNotIn('name="tipo_movimiento"', self.scanner_template)
-        self.assertIn("confirm_form.hidden_tag()", self.scanner_template)
-        self.assertIn('name="confirm_submit"', self.scanner_template)
-        self.assertIn("confirmación sigue siendo manual", self.scanner_template)
+        self.assertNotIn("confirm_form.hidden_tag()", self.scanner_template)
+        self.assertNotIn('name="confirm_submit"', self.scanner_template)
+        self.assertIn("sendCameraToken(token)", self.scanner_js)
+        self.assertIn("if (processing) return", self.scanner_js)
         self.assertNotIn("data-camera-guide", self.scanner_js)
         self.assertNotIn("tokenPattern =", self.scanner_template)
 

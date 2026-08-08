@@ -99,7 +99,10 @@ class TestWebAlumnos(unittest.TestCase):
         ):
             body = self.client.get("/admin/alumnos").get_data(as_text=True)
 
-        for heading in ("ID", "Nombre", "Matricula", "Grado", "Grupo", "Estado"):
+        for heading in (
+            "ID", "Nombre", "Matricula", "Grado", "Grupo",
+            "Estado escolar", "Cuenta EduPass", "Acceso",
+        ):
             self.assertIn(f">{heading}<", body)
         self.assertIn("Ana Demo", body)
         self.assertIn("activo", body)

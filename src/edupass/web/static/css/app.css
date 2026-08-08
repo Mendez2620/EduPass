@@ -68,6 +68,28 @@ input {
   text-decoration: none;
 }
 
+.nav-toggle {
+  display: none;
+  min-width: 44px;
+  min-height: 44px;
+  color: #ffffff;
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 4px;
+  font-size: 1.5rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 nav {
   display: flex;
   align-items: center;
@@ -277,6 +299,8 @@ td {
 th {
   color: #ffffff;
   background: var(--brand-dark);
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 tbody tr:last-child td {
@@ -308,19 +332,46 @@ tbody tr:last-child td {
   font-weight: 800;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .header-inner {
     width: min(1120px, calc(100% - 24px));
     padding: 12px 0;
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
     gap: 10px;
   }
 
-  nav {
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .site-nav {
+    position: absolute;
+    z-index: 10;
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    display: none;
     width: 100%;
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
     justify-content: flex-start;
     gap: 12px;
+    background: var(--brand-dark);
+    box-shadow: 0 10px 24px rgb(0 0 0 / 22%);
+  }
+
+  .site-nav-open {
+    display: flex;
+  }
+
+  .site-nav > a,
+  .site-nav .logout-form,
+  .site-nav .button {
+    width: 100%;
   }
 
   .page-shell {
@@ -615,6 +666,16 @@ tbody tr:last-child td {
 }
 
 .student-row-actions form {
+  margin: 0;
+}
+
+.access-management-actions {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.access-management-actions form {
   margin: 0;
 }
 

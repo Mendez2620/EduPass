@@ -3,7 +3,7 @@
 <section class="page-heading">
   <p class="eyebrow">Administracion</p>
   <h1>Listado de alumnos</h1>
-  <p>Registra, edita y administra el estado de los alumnos.</p>
+  <p>Administra los datos escolares y el acceso EduPass desde un solo lugar.</p>
   <a class="button button-primary" href="{{ url_for('admin.alumno_nuevo') }}">Registrar alumno</a>
 </section>
 
@@ -19,7 +19,9 @@
           <th scope="col">Matricula</th>
           <th scope="col">Grado</th>
           <th scope="col">Grupo</th>
-          <th scope="col">Estado</th>
+          <th scope="col">Estado escolar</th>
+          <th scope="col">Cuenta EduPass</th>
+          <th scope="col">Acceso</th>
           <th scope="col">Acciones</th>
           <th scope="col">Credencial</th>
           <th scope="col">Historial</th>
@@ -34,6 +36,12 @@
             <td>{{ alumno.grado }}</td>
             <td>{{ alumno.grupo }}</td>
             <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            <td>{{ "Vinculada" if alumno.usuario_id else "Sin cuenta" }}</td>
+            <td>
+              {% if alumno.usuario_id %}
+                <span class="status status-{{ alumno.usuario_estado }}">{{ alumno.usuario_estado }}</span>
+              {% else %}—{% endif %}
+            </td>
             <td>
               <div class="student-row-actions">
                 <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumno_editar', alumno_id=alumno.alumno_id) }}">Editar</a>
@@ -49,6 +57,11 @@
                   </form>
                 {% endif %}
               </div>
+              {% if alumno.usuario_id %}
+                <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_editar', usuario_id=alumno.usuario_id) }}">Administrar acceso</a>
+              {% else %}
+                <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva', alumno_id=alumno.alumno_id) }}">Crear cuenta</a>
+              {% endif %}
             </td>
             <td class="credential-action">
               <form method="post" action="{{ url_for('admin.generar_credencial') }}">

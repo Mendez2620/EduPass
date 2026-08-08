@@ -9,18 +9,19 @@
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <a class="brand" href="{{ url_for('auth.index') }}">EduPass</a>
+      <a class="brand" href="{{ url_for('auth.index') }}">EduPass 1.0</a>
       {% if current_user.is_authenticated %}
-        <nav class="site-nav" aria-label="Navegacion principal">
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="role-navigation" data-nav-toggle>☰<span class="visually-hidden">Abrir menú</span></button>
+        <nav class="site-nav" id="role-navigation" aria-label="Navegacion principal" data-role-navigation>
           {% if current_user.rol_nombre == "administrador" %}
             <a href="{{ url_for('admin.dashboard') }}">Administracion</a>
             <a href="{{ url_for('admin.alumnos_list') }}">Alumnos</a>
-            <a href="{{ url_for('admin.cuentas_alumnos_list') }}">Cuentas de alumnos</a>
             <a href="{{ url_for('admin.administradores_list') }}">Administradores</a>
             <a href="{{ url_for('admin.escaneres_list') }}">Escáneres</a>
             <a href="{{ url_for('admin.historial') }}">Historial</a>
           {% elif current_user.rol_nombre == "escaner" %}
-            <a href="{{ url_for('scanner.dashboard') }}">Escaneo</a>
+            <a href="{{ url_for('scanner.dashboard') }}">Panel de escaneo</a>
+            <a href="{{ url_for('scanner.validar_qr') }}">Escanear QR</a>
           {% elif current_user.rol_nombre == "alumno" %}
             <a href="{{ url_for('alumno.dashboard') }}">Mi panel</a>
             <a href="{{ url_for('alumno.credencial') }}">Mi credencial</a>
@@ -53,8 +54,9 @@
   </main>
 
   <footer class="site-footer">
-    Prototipo academico local de EduPass.
+    EduPass 1.0 · Sistema de control escolar
   </footer>
   {% block scripts %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/navigation.js') }}" defer></script>
 </body>
 </html>

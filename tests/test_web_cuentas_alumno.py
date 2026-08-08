@@ -101,9 +101,10 @@ class TestWebCuentasAlumno(unittest.TestCase):
         dashboard = self.client.get("/admin").get_data(as_text=True)
         listing = self.client.get("/admin/cuentas-alumnos")
         self.assertEqual(listing.status_code, 200)
-        self.assertIn("Cuentas de alumnos", dashboard)
-        self.assertIn("Administrar cuentas de alumnos", dashboard)
-        self.assertIn("/admin/cuentas-alumnos", dashboard)
+        self.assertNotIn("Cuentas de alumnos", dashboard)
+        self.assertIn("Alumnos y acceso personal", dashboard)
+        self.assertNotIn("Administrar cuentas de alumnos", dashboard)
+        self.assertNotIn('href="/admin/cuentas-alumnos"', dashboard)
 
     def test_listing_shows_student_accounts_not_other_roles(self):
         account = self._create_account()
@@ -113,7 +114,7 @@ class TestWebCuentasAlumno(unittest.TestCase):
         self.assertIn("Alumno Activo", body)
         self.assertNotIn("admin@edupass.test", body)
         self.assertNotIn("scanner@edupass.test", body)
-        self.assertIn("El acceso del alumno se habilitará en el siguiente incremento.", body)
+        self.assertNotIn("El acceso del alumno se habilitará en el siguiente incremento.", body)
 
     def test_listing_shows_unlinked_students_and_hides_linked_from_section(self):
         self._create_account()

@@ -246,9 +246,10 @@ def _registrar_con_token(
         last_row = _row_to_dict(last_cursor.fetchone())
         if tipo_esperado is None:
             if tipo_solicitado is None:
-                raise RepositoryError("No se indicó el modo de registro.")
-            tipo_movimiento = tipo_solicitado
-            _validar_secuencia(last_row, tipo_movimiento)
+                tipo_movimiento = _determinar_tipo(last_row)
+            else:
+                tipo_movimiento = tipo_solicitado
+                _validar_secuencia(last_row, tipo_movimiento)
         else:
             tipo_movimiento = _determinar_tipo(last_row)
             if tipo_movimiento != tipo_esperado:
@@ -346,6 +347,23 @@ def registrar_automatico_con_token(
         punto_plantel,
         database_path,
         tipo_esperado=tipo_esperado,
+    )
+
+
+def registrar_directo_automatico_con_token(
+    token_hash: str,
+    fecha_hora: str,
+    usuario_id: int,
+    punto_plantel: str,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
+    """Determina tipo, consume QR e inserta en una sola transaccion."""
+    return _registrar_con_token(
+        token_hash,
+        fecha_hora,
+        usuario_id,
+        punto_plantel,
+        database_path,
     )
 
 

@@ -54,5 +54,21 @@
       <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuentas_alumnos_list') }}">Regresar al listado</a>
     </div>
   </form>
+  {% if operation == "editar" %}
+    <div class="student-account-form-actions access-management-actions">
+      <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_password', usuario_id=cuenta.usuario_id) }}">Generar contraseña temporal</a>
+      {% if cuenta.usuario_estado == "activo" %}
+        <form method="post" action="{{ url_for('admin.cuenta_alumno_desactivar', usuario_id=cuenta.usuario_id) }}">
+          {{ estado_form.hidden_tag() }}
+          <button class="button button-danger" type="submit">Desactivar acceso</button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('admin.cuenta_alumno_activar', usuario_id=cuenta.usuario_id) }}">
+          {{ estado_form.hidden_tag() }}
+          <button class="button button-state" type="submit">Activar acceso</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
 </section>
 {% endblock %}

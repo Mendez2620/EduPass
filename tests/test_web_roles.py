@@ -164,8 +164,9 @@ class TestWebRoles(unittest.TestCase):
         self.assertIn("/admin/administradores", body)
         self.assertIn("Escáneres", body)
         self.assertIn("/admin/escaneres", body)
-        self.assertIn("Cuentas de alumnos", body)
-        self.assertIn("/admin/cuentas-alumnos", body)
+        self.assertIn("Alumnos y acceso personal", body)
+        self.assertNotIn("Cuentas de alumnos", body)
+        self.assertNotIn('href="/admin/cuentas-alumnos"', body)
         self.assertNotIn("rol_id", body)
 
 
