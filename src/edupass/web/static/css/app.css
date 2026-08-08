@@ -987,3 +987,279 @@ tbody tr:last-child td {
     min-width: 720px;
   }
 }
+
+/* Etapa 10A: experiencia adaptable y estados visuales accesibles. */
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.message-success {
+  border-left-color: #11603f;
+}
+
+.message-warning {
+  border-left-color: #805600;
+}
+
+.message-error {
+  border-left-color: #8d2e20;
+}
+
+.message-info {
+  background: #e6f1f8;
+  border-left-color: #205f82;
+}
+
+.message-icon {
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.message-success .message-icon {
+  color: #11603f;
+}
+
+.message-warning .message-icon {
+  color: #805600;
+}
+
+.message-error .message-icon {
+  color: #8d2e20;
+}
+
+.message-info .message-icon {
+  color: #205f82;
+}
+
+.validation-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.validation-result-icon {
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.validation-result-valido .validation-result-icon {
+  color: #11603f;
+}
+
+.validation-result-rechazado .validation-result-icon {
+  color: #8d2e20;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+th,
+td,
+.dashboard-card,
+.card-guidance {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-group {
+  margin-bottom: 28px;
+}
+
+.dashboard-group-heading {
+  margin-bottom: 12px;
+}
+
+.dashboard-group-heading .eyebrow,
+.dashboard-group-heading h2 {
+  margin-bottom: 4px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.dashboard-card {
+  min-width: 0;
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--brand);
+  border-radius: 6px;
+}
+
+.dashboard-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+
+.dashboard-card p {
+  width: 100%;
+  margin-bottom: 18px;
+  color: var(--muted);
+}
+
+.dashboard-card .button,
+.card-guidance {
+  margin-top: auto;
+}
+
+.card-guidance {
+  padding: 9px 12px;
+  color: var(--brand-dark);
+  background: var(--canvas);
+  border-left: 3px solid var(--brand);
+  font-weight: 700;
+}
+
+.camera-preview {
+  position: relative;
+  width: min(100%, 720px);
+  overflow: hidden;
+  background: #17211c;
+  border-radius: 6px;
+}
+
+.camera-guide {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(68%, 340px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 18%);
+}
+
+.camera-video[hidden] + .camera-guide {
+  display: none;
+}
+
+.camera-guide p {
+  position: absolute;
+  right: 0;
+  bottom: -44px;
+  left: 0;
+  margin: 0 auto;
+  padding: 6px 10px;
+  color: #ffffff;
+  background: rgb(15 26 21 / 82%);
+  border-radius: 4px;
+  font-size: clamp(0.78rem, 3vw, 0.95rem);
+  font-weight: 750;
+  text-align: center;
+}
+
+.camera-guide-corner {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-color: #ffffff;
+  border-style: solid;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 70%));
+}
+
+.camera-guide-corner-tl {
+  top: 0;
+  left: 0;
+  border-width: 4px 0 0 4px;
+}
+
+.camera-guide-corner-tr {
+  top: 0;
+  right: 0;
+  border-width: 4px 4px 0 0;
+}
+
+.camera-guide-corner-bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 4px 4px;
+}
+
+.camera-guide-corner-br {
+  right: 0;
+  bottom: 0;
+  border-width: 0 4px 4px 0;
+}
+
+@media (max-width: 600px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-card .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .header-inner,
+  .page-shell {
+    width: min(100% - 20px, 1120px);
+  }
+
+  .site-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .site-nav > a,
+  .site-nav .logout-form,
+  .site-nav .button {
+    width: 100%;
+  }
+
+  .site-nav > a {
+    min-height: 44px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    background: rgb(255 255 255 / 9%);
+    border-radius: 4px;
+  }
+
+  .page-shell {
+    padding: 22px 0;
+  }
+
+  .page-heading {
+    margin-bottom: 20px;
+  }
+
+  .dashboard-card,
+  .login-panel {
+    padding: 18px 16px;
+  }
+
+  .button,
+  .field input,
+  .field select,
+  .manual-token {
+    min-height: 46px;
+  }
+
+  .camera-guide {
+    width: min(72%, 260px);
+  }
+
+  .camera-guide-corner {
+    width: 38px;
+    height: 38px;
+  }
+}

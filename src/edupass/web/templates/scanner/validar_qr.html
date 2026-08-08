@@ -15,7 +15,16 @@
     <button class="button button-primary" type="button" data-camera-start>Activar cámara</button>
     <button class="button button-secondary bordered-button" type="button" data-camera-stop disabled>Cancelar cámara</button>
   </div>
-  <video class="camera-video" data-camera-video autoplay muted playsinline hidden></video>
+  <div class="camera-preview">
+    <video class="camera-video" data-camera-video autoplay muted playsinline hidden></video>
+    <div class="camera-guide" data-camera-guide aria-hidden="true">
+      <span class="camera-guide-corner camera-guide-corner-tl"></span>
+      <span class="camera-guide-corner camera-guide-corner-tr"></span>
+      <span class="camera-guide-corner camera-guide-corner-bl"></span>
+      <span class="camera-guide-corner camera-guide-corner-br"></span>
+      <p>Coloca el código QR dentro del marco</p>
+    </div>
+  </div>
   <p class="camera-status" data-camera-status role="status" aria-live="polite">Cámara inactiva. Puedes usar la captura manual.</p>
 </section>
 
@@ -42,9 +51,12 @@
   </form>
 
   {% if result %}
-    <div class="validation-result validation-result-{{ result.estado }}" role="status">
-      <strong>{{ "Movimiento registrado" if result.estado == "valido" else "Movimiento rechazado" }}</strong>
-      <p>{{ result.mensaje }}</p>
+    <div class="validation-result validation-result-{{ result.estado }}" role="status" aria-live="polite">
+      <span class="validation-result-icon" aria-hidden="true">{{ "✓" if result.estado == "valido" else "✕" }}</span>
+      <div>
+        <strong>{{ "Movimiento registrado" if result.estado == "valido" else "Movimiento rechazado" }}</strong>
+        <p>{{ result.mensaje }}</p>
+      </div>
     </div>
   {% endif %}
 </section>

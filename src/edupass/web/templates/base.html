@@ -11,7 +11,7 @@
     <div class="header-inner">
       <a class="brand" href="{{ url_for('auth.index') }}">EduPass</a>
       {% if current_user.is_authenticated %}
-        <nav aria-label="Navegacion principal">
+        <nav class="site-nav" aria-label="Navegacion principal">
           {% if current_user.rol_nombre == "administrador" %}
             <a href="{{ url_for('admin.dashboard') }}">Administracion</a>
             <a href="{{ url_for('admin.alumnos_list') }}">Alumnos</a>
@@ -40,7 +40,11 @@
       {% if messages %}
         <section class="messages" aria-label="Mensajes del sistema">
           {% for category, message in messages %}
-            <p class="message message-{{ category }}">{{ message }}</p>
+            {% set urgent = category in ("error", "warning") %}
+            <p class="message message-{{ category }}" role="{{ 'alert' if urgent else 'status' }}" aria-live="{{ 'assertive' if urgent else 'polite' }}">
+              <span class="message-icon" aria-hidden="true">{% if category == "success" %}✓{% elif category == "warning" %}⚠{% elif category == "error" %}✕{% else %}ℹ{% endif %}</span>
+              <span class="message-text">{{ message }}</span>
+            </p>
           {% endfor %}
         </section>
       {% endif %}

@@ -6,42 +6,60 @@
   <p>Rol: {{ current_user.rol_nombre }}</p>
 </section>
 
-<section class="action-panel" aria-labelledby="students-title">
-  <div>
-    <h2 id="students-title">Alumnos</h2>
-    <p>Consulta la informacion escolar disponible en modo de solo lectura.</p>
+<section class="dashboard-group" aria-labelledby="school-management-title">
+  <div class="dashboard-group-heading">
+    <p class="eyebrow">Gestión escolar</p>
+    <h2 id="school-management-title">Alumnos y acceso personal</h2>
   </div>
-  <a class="button button-primary" href="{{ url_for('admin.alumnos_list') }}">Ver alumnos</a>
+  <div class="dashboard-grid">
+    <article class="dashboard-card">
+      <h3>Alumnos</h3>
+      <p>Registra, edita y administra el estado de los alumnos.</p>
+      <a class="button button-primary" href="{{ url_for('admin.alumnos_list') }}">Administrar alumnos</a>
+    </article>
+    <article class="dashboard-card">
+      <h3>Cuentas de alumnos</h3>
+      <p>Crea y administra cuentas vinculadas a registros escolares.</p>
+      <a class="button button-primary" href="{{ url_for('admin.cuentas_alumnos_list') }}">Administrar cuentas de alumnos</a>
+    </article>
+  </div>
 </section>
 
-<section class="action-panel" aria-labelledby="student-accounts-title">
-  <div>
-    <h2 id="student-accounts-title">Cuentas de alumnos</h2>
-    <p>Crea y administra las cuentas vinculadas a los registros escolares.</p>
+<section class="dashboard-group" aria-labelledby="users-access-title">
+  <div class="dashboard-group-heading">
+    <p class="eyebrow">Usuarios y accesos</p>
+    <h2 id="users-access-title">Personal autorizado</h2>
   </div>
-  <a class="button button-primary" href="{{ url_for('admin.cuentas_alumnos_list') }}">Administrar cuentas de alumnos</a>
-</section>
-<section class="action-panel" aria-labelledby="administrators-title">
-  <div>
-    <h2 id="administrators-title">Administradores</h2>
-    <p>Gestiona las cuentas administrativas y su estado.</p>
+  <div class="dashboard-grid">
+    <article class="dashboard-card">
+      <h3>Administradores</h3>
+      <p>Gestiona las cuentas administrativas y su estado.</p>
+      <a class="button button-primary" href="{{ url_for('admin.administradores_list') }}">Administrar cuentas</a>
+    </article>
+    <article class="dashboard-card">
+      <h3>Personal de escaneo</h3>
+      <p>Gestiona el personal autorizado para registrar movimientos.</p>
+      <a class="button button-primary" href="{{ url_for('admin.escaneres_list') }}">Administrar escáneres</a>
+    </article>
   </div>
-  <a class="button button-primary" href="{{ url_for('admin.administradores_list') }}">Administrar cuentas</a>
-</section>
-<section class="action-panel" aria-labelledby="scanners-title">
-  <div>
-    <h2 id="scanners-title">Personal de escaneo</h2>
-    <p>Gestiona las cuentas autorizadas para registrar entradas y salidas.</p>
-  </div>
-  <a class="button button-primary" href="{{ url_for('admin.escaneres_list') }}">Administrar escáneres</a>
-</section>
-<section class="action-panel" aria-labelledby="history-title">
-  <div>
-    <h2 id="history-title">Historial de movimientos</h2>
-    <p>Consulta las entradas y salidas registradas por alumno.</p>
-  </div>
-  <a class="button button-primary" href="{{ url_for('admin.historial') }}">Ver historial</a>
 </section>
 
-<p class="notice">La credencial QR temporal esta disponible desde el listado de alumnos.</p>
+<section class="dashboard-group" aria-labelledby="operations-title">
+  <div class="dashboard-group-heading">
+    <p class="eyebrow">Operación y consulta</p>
+    <h2 id="operations-title">Credenciales e historial</h2>
+  </div>
+  <div class="dashboard-grid">
+    <article class="dashboard-card dashboard-card-guidance">
+      <h3>Credenciales</h3>
+      <p>Genera la credencial QR temporal desde la acción disponible en Alumnos.</p>
+      <span class="card-guidance">La credencial QR temporal esta disponible desde el listado de alumnos.</span>
+    </article>
+    <article class="dashboard-card">
+      <h3>Historial de movimientos</h3>
+      <p>Consulta las entradas y salidas registradas por alumno.</p>
+      <a class="button button-primary" href="{{ url_for('admin.historial') }}">Consultar historial</a>
+    </article>
+  </div>
+</section>
 {% endblock %}
