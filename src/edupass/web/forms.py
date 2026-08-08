@@ -8,7 +8,7 @@ from wtforms import (
     StringField,
     SubmitField,
 )
-from wtforms.validators import DataRequired, EqualTo, Length
+from wtforms.validators import DataRequired, EqualTo, Length, Optional
 
 
 class LoginForm(FlaskForm):
@@ -46,6 +46,24 @@ class AlumnoCrearIntegradoForm(AlumnoForm):
         validators=[DataRequired()],
     )
     submit = SubmitField("Crear alumno y cuenta")
+
+
+class AlumnoEditarIntegradoForm(AlumnoForm):
+    estado_escolar = SelectField(
+        "Estado escolar",
+        choices=[("activo", "Activo"), ("inactivo", "Inactivo")],
+        validators=[DataRequired()],
+    )
+    correo = StringField(
+        "Correo",
+        validators=[Optional(), Length(max=254)],
+    )
+    estado_acceso = SelectField(
+        "Estado de acceso",
+        choices=[("activo", "Activo"), ("inactivo", "Inactivo")],
+        validators=[Optional()],
+    )
+    submit = SubmitField("Guardar cambios")
 
 
 class EstadoAlumnoForm(FlaskForm):

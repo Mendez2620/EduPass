@@ -354,7 +354,7 @@ tbody tr:last-child td {
     right: 12px;
     left: 12px;
     display: none;
-    width: 100%;
+    width: auto;
     padding: 12px;
     flex-direction: column;
     align-items: stretch;
@@ -1382,7 +1382,7 @@ td,
     width: min(100% - 20px, 1120px);
   }
 
-  .site-nav {
+  .site-nav.site-nav-open {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     width: 100%;
@@ -1438,5 +1438,57 @@ td,
 
   .movement-confirm-form .button {
     width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .students-responsive-table,
+  .students-responsive-table tbody,
+  .students-responsive-table tr,
+  .students-responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .students-responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .students-responsive-table tr {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  .students-responsive-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, 42%) minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .students-responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 750;
+  }
+
+  .students-responsive-table .student-row-actions,
+  .students-responsive-table .credential-action form,
+  .students-responsive-table td[data-label="Historial"] .button {
+    width: 100%;
+  }
+
+  .students-responsive-table .button {
+    min-width: 0;
+    white-space: normal;
   }
 }

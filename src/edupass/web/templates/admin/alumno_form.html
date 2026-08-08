@@ -3,7 +3,7 @@
 <section class="page-heading">
   <p class="eyebrow">Administracion de alumnos</p>
   <h1>{{ "Registrar alumno" if operation == "crear" else "Editar alumno" }}</h1>
-  <p>{{ "Captura los datos escolares y el acceso que se creará en una sola operación." if operation == "crear" else "Actualiza exclusivamente los datos escolares del alumno." }}</p>
+  <p>{{ "Captura los datos escolares y el acceso que se creará en una sola operación." if operation == "crear" else "Actualiza los datos escolares y el acceso EduPass desde una sola pantalla." }}</p>
 </section>
 
 {% if error_message %}
@@ -43,11 +43,18 @@
           <p class="field-error">{{ error }}</p>
         {% endfor %}
       </div>
+      {% if operation == "editar" %}
+        <div class="field student-form-wide">
+          {{ form.estado_escolar.label }}
+          {{ form.estado_escolar() }}
+          {% for error in form.estado_escolar.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
     </div>
-    {% if operation == "crear" %}
+    {% if operation == "crear" or cuenta %}
       <section class="student-account-fields" aria-labelledby="student-access-title">
         <h2 id="student-access-title">Acceso a EduPass</h2>
-        <p class="form-guidance">✓ Alumno<br>✓ Cuenta EduPass vinculada</p>
+        {% if operation == "crear" %}<p class="form-guidance">✓ Alumno<br>✓ Cuenta EduPass vinculada</p>{% endif %}
         <div class="student-form-grid">
           <div class="field student-form-wide">
             {{ form.correo.label }}
@@ -60,6 +67,12 @@
             {% for error in form.estado_acceso.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
+      </section>
+    {% elif operation == "editar" %}
+      <section class="student-account-fields" aria-labelledby="student-access-title">
+        <h2 id="student-access-title">Acceso a EduPass</h2>
+        <p>Este alumno todavía no tiene cuenta vinculada.</p>
+        <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva', alumno_id=request.view_args.alumno_id) }}">Crear cuenta</a>
       </section>
     {% endif %}
     <div class="student-form-actions">

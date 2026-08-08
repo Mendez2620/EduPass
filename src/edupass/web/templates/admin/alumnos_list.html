@@ -11,17 +11,14 @@
   <p class="message message-error">{{ error_message }}</p>
 {% elif alumnos %}
   <div class="table-scroll">
-    <table>
+    <table class="students-responsive-table">
       <thead>
         <tr>
-          <th scope="col">ID</th>
           <th scope="col">Nombre</th>
           <th scope="col">Matricula</th>
-          <th scope="col">Grado</th>
-          <th scope="col">Grupo</th>
+          <th scope="col">Grado / Grupo</th>
           <th scope="col">Estado escolar</th>
-          <th scope="col">Cuenta EduPass</th>
-          <th scope="col">Acceso</th>
+          <th scope="col">Acceso EduPass</th>
           <th scope="col">Acciones</th>
           <th scope="col">Credencial</th>
           <th scope="col">Historial</th>
@@ -30,21 +27,23 @@
       <tbody>
         {% for alumno in alumnos %}
           <tr>
-            <td>{{ alumno.alumno_id }}</td>
-            <td>{{ alumno.nombre }}</td>
-            <td>{{ alumno.matricula }}</td>
-            <td>{{ alumno.grado }}</td>
-            <td>{{ alumno.grupo }}</td>
-            <td><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
-            <td>{{ "Vinculada" if alumno.usuario_id else "Sin cuenta" }}</td>
-            <td>
+            <td data-label="Nombre">{{ alumno.nombre }}</td>
+            <td data-label="Matrícula">{{ alumno.matricula }}</td>
+            <td data-label="Grado / Grupo">{{ alumno.grado }} / {{ alumno.grupo }}</td>
+            <td data-label="Estado escolar"><span class="status status-{{ alumno.estado }}">{{ alumno.estado }}</span></td>
+            <td data-label="Acceso EduPass">
               {% if alumno.usuario_id %}
                 <span class="status status-{{ alumno.usuario_estado }}">{{ alumno.usuario_estado }}</span>
-              {% else %}—{% endif %}
+              {% else %}Sin cuenta{% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="student-row-actions">
                 <a class="button button-secondary bordered-button" href="{{ url_for('admin.alumno_editar', alumno_id=alumno.alumno_id) }}">Editar</a>
+                {% if alumno.usuario_id %}
+                  <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_password', usuario_id=alumno.usuario_id) }}">Generar contraseña temporal</a>
+                {% else %}
+                  <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva', alumno_id=alumno.alumno_id) }}">Crear cuenta</a>
+                {% endif %}
                 {% if alumno.estado == "activo" %}
                   <form method="post" action="{{ url_for('admin.alumno_desactivar', alumno_id=alumno.alumno_id) }}" onsubmit="return window.confirm('¿Desactivar este alumno?');">
                     {{ estado_form.hidden_tag() }}
@@ -57,13 +56,8 @@
                   </form>
                 {% endif %}
               </div>
-              {% if alumno.usuario_id %}
-                <a class="button button-secondary bordered-button" href="{{ url_for('admin.cuenta_alumno_editar', usuario_id=alumno.usuario_id) }}">Administrar acceso</a>
-              {% else %}
-                <a class="button button-primary" href="{{ url_for('admin.cuenta_alumno_nueva', alumno_id=alumno.alumno_id) }}">Crear cuenta</a>
-              {% endif %}
             </td>
-            <td class="credential-action">
+            <td class="credential-action" data-label="Credencial">
               <form method="post" action="{{ url_for('admin.generar_credencial') }}">
                 {% if credencial_form.csrf_token is defined %}
                   {{ credencial_form.csrf_token() }}
@@ -72,7 +66,7 @@
                 <button class="button button-primary" type="submit"{% if alumno.estado != "activo" %} disabled aria-disabled="true"{% endif %}>Generar credencial</button>
               </form>
             </td>
-            <td><a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=alumno.alumno_id) }}">Ver historial</a></td>
+            <td data-label="Historial"><a class="button button-secondary bordered-button" href="{{ url_for('admin.historial_alumno', alumno_id=alumno.alumno_id) }}">Ver historial</a></td>
           </tr>
         {% endfor %}
       </tbody>

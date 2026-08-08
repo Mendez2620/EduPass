@@ -22,7 +22,11 @@ from edupass.modules.credencial_qr import credencial_service
 from edupass.modules.credencial_qr.qr_renderer import generar_qr_svg
 from edupass.modules.historial import historial_service
 from edupass.modules.auth import usuarios_service
-from edupass.shared.constants import ESTADO_ALUMNO_ACTIVO, ROL_ADMINISTRADOR
+from edupass.shared.constants import (
+    ESTADO_ACTIVO,
+    ESTADO_ALUMNO_ACTIVO,
+    ROL_ADMINISTRADOR,
+)
 from edupass.shared.errors import (
     AuthorizationError,
     AutoBloqueoAdministradorError,
@@ -44,6 +48,7 @@ from edupass.web.forms import (
     AdministradorEditarForm,
     AdministradorPasswordForm,
     AlumnoCrearIntegradoForm,
+    AlumnoEditarIntegradoForm,
     AlumnoForm,
     CuentaAlumnoCrearForm,
     CuentaAlumnoEditarForm,
@@ -133,6 +138,7 @@ def _render_alumno_form(
     *,
     error_message: str | None = None,
     status: int = 200,
+    cuenta=None,
 ):
     title = "Registrar alumno" if operation == "crear" else "Editar alumno"
     return (
@@ -141,6 +147,7 @@ def _render_alumno_form(
             form=form,
             operation=operation,
             error_message=error_message,
+            cuenta=cuenta,
             title=title,
         ),
         status,
@@ -1475,19 +1482,44 @@ def alumno_editar(alumno_id: int):
     except RepositoryError:
         return _technical_alumno_error("consultar para editar")
 
-    form = AlumnoForm()
+    try:
+        cuenta = next(
+            (
+                item
+                for item in cuentas_alumno_service.listar_cuentas_alumno(
+                    current_app.config["DATABASE_PATH"]
+                )
+                if item["alumno_id"] == alumno_id
+            ),
+            None,
+        )
+    except RepositoryError:
+        return _technical_alumno_error("consultar acceso para editar")
+    form = AlumnoEditarIntegradoForm()
     if not form.is_submitted():
         form.nombre.data = alumno["nombre"]
         form.matricula.data = alumno["matricula"]
         form.grado.data = alumno["grado"]
         form.grupo.data = alumno["grupo"]
-        return _render_alumno_form(form, "editar")
+        form.estado_escolar.data = alumno["estado"]
+        if cuenta is not None:
+            form.correo.data = cuenta["correo"]
+            form.estado_acceso.data = cuenta["usuario_estado"]
+        return _render_alumno_form(form, "editar", cuenta=cuenta)
+    if "estado_escolar" not in request.form:
+        form.estado_escolar.data = alumno["estado"]
+    if cuenta is not None:
+        if "correo" not in request.form:
+            form.correo.data = cuenta["correo"]
+        if "estado_acceso" not in request.form:
+            form.estado_acceso.data = cuenta["usuario_estado"]
     if not form.validate_on_submit():
         return _render_alumno_form(
             form,
             "editar",
             error_message="Revisa los datos obligatorios del alumno.",
             status=400,
+            cuenta=cuenta,
         )
 
     try:
@@ -1500,6 +1532,31 @@ def alumno_editar(alumno_id: int):
             fotografia=alumno["fotografia"],
             database_path=current_app.config["DATABASE_PATH"],
         )
+        school_state_operation = (
+            alumnos_service.activar_alumno
+            if form.estado_escolar.data == ESTADO_ALUMNO_ACTIVO
+            else alumnos_service.desactivar_alumno
+        )
+        school_state_operation(
+            alumno_id, current_app.config["DATABASE_PATH"]
+        )
+        if cuenta is not None:
+            cuentas_alumno_service.editar_cuenta_alumno(
+                cuenta["usuario_id"],
+                form.correo.data,
+                current_user.usuario_id,
+                current_app.config["DATABASE_PATH"],
+            )
+            account_state_operation = (
+                cuentas_alumno_service.activar_cuenta_alumno
+                if form.estado_acceso.data == ESTADO_ACTIVO
+                else cuentas_alumno_service.desactivar_cuenta_alumno
+            )
+            account_state_operation(
+                cuenta["usuario_id"],
+                current_user.usuario_id,
+                current_app.config["DATABASE_PATH"],
+            )
     except AlumnoNoEncontradoError:
         return _render_alumno_operation_error(
             "No se encontró el alumno solicitado.",
@@ -1511,6 +1568,25 @@ def alumno_editar(alumno_id: int):
             "editar",
             error_message="La matrícula ya está registrada.",
             status=409,
+            cuenta=cuenta,
+        )
+    except DuplicateUserError:
+        return _render_alumno_form(
+            form,
+            "editar",
+            error_message="El correo ya está registrado.",
+            status=409,
+            cuenta=cuenta,
+        )
+    except AlumnoInactivoError:
+        return _render_alumno_form(
+            form,
+            "editar",
+            error_message=(
+                "No se puede activar el acceso de un alumno inactivo."
+            ),
+            status=409,
+            cuenta=cuenta,
         )
     except ValidationError:
         return _render_alumno_form(
@@ -1518,6 +1594,7 @@ def alumno_editar(alumno_id: int):
             "editar",
             error_message="Revisa los datos obligatorios del alumno.",
             status=400,
+            cuenta=cuenta,
         )
     except RepositoryError:
         return _technical_alumno_error("editar")

@@ -100,10 +100,13 @@ class TestWebAlumnos(unittest.TestCase):
             body = self.client.get("/admin/alumnos").get_data(as_text=True)
 
         for heading in (
-            "ID", "Nombre", "Matricula", "Grado", "Grupo",
-            "Estado escolar", "Cuenta EduPass", "Acceso",
+            "Nombre", "Matricula", "Grado / Grupo",
+            "Estado escolar", "Acceso EduPass", "Acciones",
+            "Credencial", "Historial",
         ):
             self.assertIn(f">{heading}<", body)
+        self.assertNotIn(">ID<", body)
+        self.assertNotIn(">Cuenta EduPass<", body)
         self.assertIn("Ana Demo", body)
         self.assertIn("activo", body)
         self.assertIn("inactivo", body)
