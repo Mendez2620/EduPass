@@ -236,4 +236,12 @@ La tabla `intentos_rechazados` existe en el esquema como preparación estructura
 
 ## 20. Resultado
 
+### Consolidación final
+
+Después del corte histórico de 892 pruebas se integraron detección automática de entrada/salida, alta atómica de alumno y acceso, contraseña temporal con `secrets`, cambio obligatorio, notificaciones internas y mejoras responsive/UX. El corte final contiene **964 pruebas en OK**.
+
+El flujo automático de cierre fue: administrador → alumno con cambio obligatorio → QR → escáner con entrada y salida → rechazo por reutilización → notificaciones e historial del alumno → historial administrativo. Se usaron datos ficticios, SQLite temporal fuera del repositorio y tres viewports: 390 × 844, 768 × 1024 y 1366 × 768. La cámara se verificó en cuanto a interfaz y estados; no se declara una cámara física.
+
+El inventario está en [`evidencias_visuales/inventario_evidencias.md`](evidencias_visuales/inventario_evidencias.md). Clasificación final: **A. APROBADO**; sin bloqueadores para el cierre académico.
+
 Semana 13 cerró siete commits técnicos locales, 892 pruebas en `OK` y una auditoría integral A. APROBADO. Al redactar este reporte todavía no se ha realizado push de los commits locales; la documentación está en preparación y no se incluye un commit documental aún inexistente. La evidencia física con teléfono continúa pendiente y la carpeta de presentación queda expresamente excluida de este incremento.

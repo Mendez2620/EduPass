@@ -266,4 +266,6 @@ La demostración de alumnos utiliza SQLite temporal, valida el CRUD de ese módu
 
 ## Resultado
 
+> **Cierre integral actualizado:** Semana 13 incluye alta integrada, contraseñas temporales con cambio obligatorio, entrada/salida automática, notificaciones internas y consolidación responsive/UX. La suite final de referencia contiene **964 pruebas en OK**. Las evidencias automáticas están en [`docs/semana_13/evidencias_visuales/`](docs/semana_13/evidencias_visuales/), obtenidas con Flask real, SQLite temporal y datos ficticios. La evidencia de cámara acredita su interfaz en `localhost`, no una cámara física. Clasificación final: **A. APROBADO**. La carpeta `docs/presentacion_segundo_parcial/` queda fuera del cierre.
+
 La auditoría integral de Semana 13 obtuvo la clasificación **A. APROBADO** con 892 pruebas en estado `OK` y sin bloqueadores funcionales. El proyecto puede pasar a documentación y preparación de publicación. Permanecen pendientes la evidencia física con teléfono, el cierre documental y la publicación final.

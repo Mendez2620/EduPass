@@ -227,6 +227,10 @@ Las pruebas crean SQLite temporales y no deben modificar `data\edupass.sqlite`. 
 
 ## 16. Solución de problemas
 
+## Guion final automático
+
+Usa SQLite temporal y datos ficticios; recorre administrador, cambio obligatorio del alumno, portal, QR, escáner, entrada, salida, rechazo, notificaciones e historial. Ejecuta la suite completa y conserva el resumen real. Valida 390 × 844, 768 × 1024 y 1366 × 768. No captures contraseñas, tokens, hashes, cookies, SQL, traceback, rutas locales, datos personales ni túneles. La interfaz de cámara puede validarse en `localhost`, pero una cámara física requiere prueba separada. Resultado de referencia: **964 pruebas, OK, A. APROBADO**.
+
 | Problema | Causa probable | Acción segura |
 |---|---|---|
 | Falta `SECRET_KEY` | No se configuró `EDUPASS_SECRET_KEY` fuera de pruebas. | Define un valor privado en la sesión y reinicia. |
